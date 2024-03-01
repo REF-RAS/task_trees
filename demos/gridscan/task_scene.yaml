@@ -1,0 +1,87 @@
+scene:
+  named_poses: 
+    stow: [3.110, -0.5467, -2.692, -1.473, 1.570, 0.000]  # from base to wrist_3
+    home: [2.524, -1.241, -2.101, -1.370, 1.570, 0.000]  # from base to wrist_3
+  regions:
+    workspace: [-1.2, -0.97, -0.1, 1.5, 0.6, 1.2]  # min_x, min_y, min_z, max_x, max_y, max_z
+    inner: [-1.2, -0.3, 1.2, 0.6]  # min_x, min_y, max_x, max_y
+    work: [-1.2, -0.6, 1.2, -0.3]  # min_x, min_y, max_x, max_y
+    work3d: [-1.2, -0.6, 0.15, 1.2, -0.3, 0.6]  # min_x, min_y, min_z, max_x, max_y, max_z
+  objects:
+    - name: the_tank
+      type: box
+      model_file: null
+      dimensions: [0.4, 1.8, 0.10]
+      xyz: [0.0, -0.5, 0.05]
+      rpy: [0, 0, 1.57]
+    - name: side_1
+      type: box
+      model_file: null
+      dimensions: [0.005, 1.8, 0.20]
+      xyz: [0.0, -0.3, 0.10]
+      rpy: [0, 0, 1.57]
+    - name: side_2
+      type: box
+      model_file: null
+      dimensions: [0.005, 1.8, 0.20]
+      xyz: [0.0, -0.7, 0.10]
+      rpy: [0, 0, 1.57]
+    - name: side_3
+      type: box
+      model_file: null
+      dimensions: [0.4, 0.005, 0.20]
+      xyz: [-0.9, -0.5, 0.10]
+      rpy: [0, 0, 1.57]
+    - name: side_4
+      type: box
+      model_file: null
+      dimensions: [0.4, 0.005, 0.20]
+      xyz: [0.9, -0.5, 0.10]
+      rpy: [0, 0, 1.57]
+
+subscenes:
+  tank:
+    bbox: [0, 0, 0.4, 1.8]  # min_x, min_y, max_x, max_y
+    positions:
+      default: [null, null, 0.35]
+      hover: [null, null, 0.35]
+      submerged: [null, null, 0.2]
+    rotations:
+      # alpha: [-3.14, 0, 0]
+      # beta: [-3.14, 0, -3.14]
+      # delta: [-2.80, 0, null]
+      # gamma: [-3.14, 0, -1.58]
+      alpha: [-3.14, 0, -1.58]
+      beta: [-3.14, 0, 1.58]
+      delta: [-2.80, 0, null]
+      gamma: [-3.14, 0, 0]
+    grid_positions:
+      transition: [1, 0, 5, 0]
+      zero: [0, 0, 0, 0] 
+    tile:
+      step_size_x: [0.00, 0.05]  # x, y displacement for cell_x
+      step_size_y: [0.15, 0.00]  # x, y displacement for cell_y    
+    tiles:
+    - tile_x: 0
+      tile_y: 0
+      origin_position: [-0.1, -0.75]
+      ee_rotation: tank.rotations.alpha
+    - tile_x: 1
+      tile_y: 0
+      origin_position: [-0.1, -0.45]
+      ee_rotation: tank.rotations.alpha
+    - tile_x: 2
+      tile_y: 0
+      origin_position: [-0.1, -0.15]
+      ee_rotation: tank.rotations.beta
+    - tile_x: 3
+      tile_y: 0
+      origin_position: [-0.1, 0.15]
+      ee_rotation: tank.rotations.beta
+    - tile_x: 4
+      tile_y: 0
+      origin_position: [-0.1, 0.45]
+      ee_rotation: tank.rotations.beta
+ 
+
+

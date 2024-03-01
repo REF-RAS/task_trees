@@ -1,0 +1,11 @@
+### GOAL DEFINITION
+int32 tile_x
+int32 tile_y
+int32 grid_x
+int32 grid_y
+---
+### RESULT DEFINITION
+string error
+---
+### FEEDBACK
+string state

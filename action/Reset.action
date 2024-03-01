@@ -1,0 +1,8 @@
+### GOAL DEFINITION
+string pose     # the desired pose as a string (e.g. stow, recovery_1, recovery_2)
+---
+### RESULT DEFINITION
+string error
+---
+### FEEDBACK
+string state

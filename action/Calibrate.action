@@ -1,0 +1,8 @@
+### GOAL DEFINITION
+---
+### RESULT DEFINITION
+string location  # the apriltag encoded ID as a string
+string error
+---
+### FEEDBACK
+string state
