@@ -83,7 +83,7 @@ class SceneConditionalCommanderBehaviour(ConditionalCommanderBehaviour):
 # A utility Behaviour used for tracing and debugging. It prints the pose of the end-effector in the reference frames
 # of a collision object or all objects
 class PrintPosesInFrame(PrintPose):
-    """ a utility Behaviour used for tracing and debugging. It prints a string message from a constant or a function that returns a string
+    """ A utility Behaviour used for tracing and debugging. It prints a string message from a constant or a function that returns a string
         and optionally the status of the subtree rooted at the parent of this behaviour.
     """
     def __init__(self, arm_commander:GeneralCommander=None, scene:Scene=None, reference_frame:str=None):
