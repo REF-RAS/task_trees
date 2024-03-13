@@ -30,7 +30,7 @@ from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
 
 from demos.pickndrop.behaviours_pnd import DoScanProgram
-from work_model import SingleLineScanModel, SteppingScanModel, FourCornersScanModel
+from scan_model import SingleLineScanModel, SteppingScanModel, FourCornersScanModel
 
 # -------------------------------------
 # Tasks specialized for the Pick-n-Drop 
@@ -87,7 +87,6 @@ class PNDTaskTreesManager(TaskTreesManager):
         config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
         self.the_scene = Scene(config_file)
         # setup the robotic manipulation platform through the commander
-        self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
         self.arm_commander.set_workspace_walls(*(self.the_scene.query_config('regions.workspace')))
@@ -96,11 +95,7 @@ class PNDTaskTreesManager(TaskTreesManager):
         for pose_name in self.named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
-        # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
+
         # setup the blackboard and the two blackboard keys 'seen_object'
         self.the_blackboard.register_key(key='seen_object', access=py_trees.common.Access.WRITE)      
         # setup the scan program
@@ -111,7 +106,7 @@ class PNDTaskTreesManager(TaskTreesManager):
         self.the_ball = None
         
         # build and install the behavior tree
-        # self._set_initialize_branch(self.create_initialize_branch())
+        self._set_initialize_branch(self.create_initialize_branch())
         # self._add_priority_branch(self.create_timeout_branch())
         self._add_task_branch(self.create_move_namedpose_task_branch(), MoveNamedPoseTask)
         self._add_task_branch(self.create_scan_task_branch(), ScanTask)
@@ -123,7 +118,13 @@ class PNDTaskTreesManager(TaskTreesManager):
     
     # -----------------------------------------
     # Functions for the simulation (demo)
-        
+    def setup_objects(self):
+        # setup objects
+        for object_name in self.the_scene.list_object_names():
+            the_object = self.the_scene.get_object_config(object_name)
+            if the_object.type == 'box':
+                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)    
+    
     # Generate a new ball on the table
     def generate_a_ball(self):
         the_table = self.the_scene.get_object_config('the_table')
@@ -279,7 +280,7 @@ class PNDTaskTreesManager(TaskTreesManager):
                 children=[
                     DoMoveXYZ('move_to_above_object', True, arm_commander=self.arm_commander, scene=self.the_scene, target_xyz=self.query_preparatory_position_as_xyz),                     
                     DoMoveXYZ('move_to_object', True, arm_commander=self.arm_commander, scene=self.the_scene, target_xyz=self.query_grab_position_as_xyz),     
-                    SimAttachObject('grab_object', True, arm_commander=self.arm_commander, object_name='the_ball'),
+                    SimAttachObject('grab_object',arm_commander=self.arm_commander, object_name='the_ball'),
                     ],
             ),
         )
@@ -296,7 +297,7 @@ class PNDTaskTreesManager(TaskTreesManager):
                 children=[
                     DoMoveNamedPose('move_home_first_if_inner', True, arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),   
                     DoMoveXYZ('move_to_bin_pose', True, arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='positions.drop'), 
-                    SimDetachObject('drop_object', True, arm_commander=self.arm_commander, object_name='the_ball', to_remove=True),                         
+                    SimDetachObject('drop_object', arm_commander=self.arm_commander, object_name='the_ball', to_remove=True),                         
                     ],
             ),
         )
@@ -316,38 +317,14 @@ class PNDTaskTreesManager(TaskTreesManager):
             ),
         )
         return move_pose_branch
-        
-    def create_timeout_branch(self) -> Composite:
-        timeout_branch = py_trees.composites.Sequence(
-            'no_task_timeout_branch',
-            memory=True,
-            children = [
-                # py_trees.behaviours.CheckBlackboardVariableExists(name='check_task_exists', variable_name='task'),
-                DoMoveNamedPose('move_home_if_timeout',  [
-                                        {'_fn': self.task_is_timeout, 'duration': 90},
-                                        {'_not_fn': self.in_a_region, 'logical_region': 'regions.inner'}],
-                                        arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),
-                DoMoveNamedPose('move_stow_if_timeout', [
-                                        {'_fn': self.task_is_timeout, 'duration': 120}, 
-                                        {'_fn': self.in_a_region, 'logical_region': 'regions.inner'},
-                                        {'_not_fn': self.at_a_named_pose, 'named_pose': 'named_poses.stow'},],
-                                        arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.stow'),
-            ],
-        )
-        return timeout_branch
     
     def create_initialize_branch(self) -> py_trees.decorators.OneShot:
         init_action_branch = py_trees.composites.Sequence(
             'init_action_branch',
             memory=True,
             children = [
-                DoMoveNamedPose('move_home_if_out_of_inner',  [
-                                        {'_not_fn': self.in_a_region, 'logical_region': 'regions.inner'}],
-                                        arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),
-                DoMoveNamedPose('move_stow_if_in_inner', [
-                                        {'_fn': self.in_a_region, 'logical_region': 'regions.inner'},
-                                        {'_not_fn': self.at_a_named_pose, 'named_pose': 'named_poses.stow'},],
-                                        arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.stow'),                
+                DoMoveNamedPose('move_home', True,
+                                        arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),            
             ]
         )
         return init_action_branch

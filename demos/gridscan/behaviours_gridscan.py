@@ -66,7 +66,7 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
     """ This behaviour moves the end-effector to a pose defined in the frame of the work area in a cartesian manner. 
         The roll and pitch components of the orientation of the end-effector is fixed.
     """
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None, 
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
                 scene:GridScanScene=None, grid_position=None, constraint_fn=None):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         :param the_scene: the scene model for the handling of logical positions specified in the target xyz
@@ -76,7 +76,8 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
         :param reference_frame: the reference_frame
         :type reference_frame: a string representing the reference_frame      
         """
-        super(DoMoveTankGrid, self).__init__(name, condition_fn, policy, arm_commander, scene, reference_frame='the_tank')
+        super(DoMoveTankGrid, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, arm_commander=arm_commander, scene=scene, 
+                                             reference_frame='the_tank')
         if grid_position is None:
             rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (physical_xyz) is None -> fix the missing value')
             raise AssertionError(f'A parameter should not be None nor missing')
@@ -97,7 +98,7 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
             self.arm_commander.add_path_constraints(self.constraint_fn())
         # send commands  
         self.arm_commander.move_to_position(x=xyz[0], y=xyz[1], z=xyz[2], cartesian=self.cartesian, reference_frame=self.reference_frame, wait=False)
-        rospy.loginfo(f'DoMoveTankGrid ({self.name}): started move to pose: {xyz} of {self.reference_frame}')   
+        rospy.loginfo(f'DoMoveTankGrid ({self.name}): started move to pose: {xyz} in reference frame "{self.reference_frame}"')   
         return Status.RUNNING
     # the concrete implementation of the logic when the command is completed    
     def tidy_up(self):

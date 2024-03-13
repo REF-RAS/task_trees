@@ -9,11 +9,12 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import threading, operator
+import threading, operator, signal, sys
 from enum import Enum
 import rospy
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
+from py_trees.decorators import EternalGuard
 from py_trees.trees import BehaviourTree
 
 from task_trees.behaviours_base import *
@@ -122,7 +123,7 @@ class BasicTask():
             if self.state in until_states:
                 return self.state
             if previous_state is None or previous_state != self.state:
-                rospy.loginfo(f'{__class__.__name__} (wait_for_completion): the thread is waiting (task_state: {self.state}) ...')
+                rospy.loginfo(f'{type(self).__name__} (wait_for_completion): the thread is waiting (task_state: {self.state}) ...')
                 previous_state = self.state
             rospy.sleep(0.5)
     
@@ -186,7 +187,10 @@ class BasicTaskTreesManager:
         self.bt = bt
         rospy.sleep(startup_wait_sec)
         # spin the tree
-        self.the_thread = threading.Thread(target=lambda: self.bt.tick_tock(period_ms=spin_period_ms), daemon=True)
+        self.the_thread = threading.Thread(target=lambda: 
+            self.bt.tick_tock(period_ms=spin_period_ms, 
+                              pre_tick_handler=self._pre_tick_handler,
+                              post_tick_handler=self._post_tick_handler), daemon=True)
         self.the_thread.start()  
     
     # internal function: called by the task when it receives a cancel call
@@ -199,6 +203,15 @@ class BasicTaskTreesManager:
                     return True
         return False
     
+    # internal function: the pre-handler for tick-tock
+    def _pre_tick_handler(self, tree):
+        pass
+    
+    # internal function: the post-handler for tick-tock
+    def _post_tick_handler(self, tree):
+        pass    
+    
+    # functions for handling the SIGINT signal
     def stop(self, *args, **kwargs):
         rospy.logwarn(f'{__class__.__name__}: SIGNINT signal received -> interrupt the tick-tock of the behaviour tree and shutdown the task manager')
         self.shutdown()
@@ -296,10 +309,10 @@ class TaskTreesManager(BasicTaskTreesManager):
                 self.cancellable_do_tasks_branch,
             ],
         )
-        self.root_selector = py_trees.composites.Sequence('root_selector', memory=True, children=[
+        self.root_sequence = py_trees.composites.Sequence('root_sequence', memory=True, children=[
             do_tasks_trunk,
             ])
-        self.the_root = BehaviourTree(self.root_selector) 
+        self.the_root = BehaviourTree(self.root_sequence) 
         return self.the_root
         
     def _set_initialize_branch(self, branch:Composite):
@@ -307,12 +320,12 @@ class TaskTreesManager(BasicTaskTreesManager):
             rospy.logerr(f'{__class__.__name__} (_set_initialize_branch): cannot set initialization branch more than once-> fix the subclass and avoid calling the function more then once')
             raise AssertionError(f'A parameter should not be None nor missing')  
         self.initialize_branch = py_trees.decorators.OneShot('init_oneshot_branch', policy = py_trees.common.OneShotPolicy.ON_COMPLETION, child=branch)
-        self.root_selector.insert_child(self.initialize_branch, 0)
+        self.root_sequence.insert_child(self.initialize_branch, 0)
         self.num_initialize_branch = 1
         
     def _add_priority_branch(self, branch:Composite):
         index = self.num_initialize_branch + self.num_priority_branch
-        self.root_selector.insert_child(branch, index)
+        self.root_sequence.insert_child(branch, index)
         self.num_priority_branch += 1
     
     def _add_task_branch(self, branch:Composite, task_class:type=None):
@@ -345,6 +358,130 @@ class TaskTreesManager(BasicTaskTreesManager):
             return
         rospy.loginfo(f'display tree {branch} {target_directory}')
         py_trees.display.render_dot_tree(branch, target_directory=target_directory)
+
+
+# -----------------------------------------------------------------------------------------------------------
+# The generic Guarded Task Manager to support the framework of behaviour tree development 
+# it is for managing the life cycle of the actions and behaviours for various tasks  
+# the difference from TaskTreesManager is the option of setting conditions to invalidate the behaviour at every tick-tock
+class GuardedTaskTreesManager(TaskTreesManager):
+    """ subclass the TaskTreesManager to develop application specific behaviour trees that are structures to support
+        the plug-in of tasks, timeout, and on-shot initialization branches 
+    """
+    def __init__(self, arm_commander:GeneralCommander, global_guard_condition_fn=None, task_guard_condition_fn=None, guard_reset=True):
+        """The constructor for this class
+
+        :param arm_commander: The commander to be used for the behaviours in the task tree
+        :type arm_commander: GeneralCommander
+        :param global_guard_condition_fn: the condition function that trigger the global guard for the task trees, defaults to None
+        :type global_guard_condition_fn: a function returning a bool type, True if no alert, optional
+        :param task_guard_condition_fn: the condition function that trigger the task guard for the task trees, defaults to None
+        :type task_guard_condition_fn: a function returning a bool type, True if no alert, optional
+        :param guard_reset: whether an activated guard needs reset to go back to unactivated state, defaults to True
+        :type guard_reset: bool, optional
+        """
+        self.global_guard_activated = False
+        self.task_guard_activated = False
+        self.custom_global_guard_condition_fn = self.custom_task_guard_condition_fn = None
+        self.set_global_guard_condition_fn(global_guard_condition_fn)
+        self.set_task_guard_condition_fn(task_guard_condition_fn)        
+        self.guard_reset = guard_reset
+        super(GuardedTaskTreesManager, self).__init__(arm_commander)
+        
+    # internal function to handle the activation of the EternalGuard
+    def _post_tick_handler(self, tree):  
+        if self.global_guard.status == Status.FAILURE and self.global_guard.condition() == False:
+            self.global_guard_activated = True
+        elif self.guard_reset == False:
+                self.global_guard_activated = not self.global_guard.condition() 
+            
+        if self.task_guard.status == Status.FAILURE and self.task_guard.condition() == False:
+            self.task_guard_activated = True 
+        elif self.guard_reset == False:
+                self.task_guard_activated = not self.task_guard.condition() 
+
+        if (self.global_guard_activated or self.task_guard_activated) and self.the_blackboard.exists('task'):
+            the_task:BasicTask = self.the_blackboard.get('task')
+            if the_task is not None:
+                the_task.state = TaskStates.GUARD_ABORTED
+                self.the_blackboard.unset('task')  
+        
+    # internal function: the condition function for the eternal guards
+    
+    # return True if no alert should be made 
+    def _get_global_guard_condition(self):
+        #if self.custom_global_guard_condition_fn is not None:
+        #    rospy.loginfo(f'custom_global_guard_condition_fn: {self.custom_global_guard_condition_fn()}')
+        return not self.global_guard_activated and (self.custom_global_guard_condition_fn is None or self.custom_global_guard_condition_fn())
+    
+    # return True if no alert should be made    
+    def _get_task_guard_condition(self):
+        return not self.task_guard_activated and (self.custom_task_guard_condition_fn is None or self.custom_task_guard_condition_fn())
+
+    # setting the guard conditions
+    def set_global_guard_condition_fn(self, global_guard_condition_fn):
+        if global_guard_condition_fn is not None and not hasattr(global_guard_condition_fn, '__call__'):
+            raise AssertionError(f'GuardedTaskTreesManager: The parameter root_guard_condition is not a function')
+        self.custom_global_guard_condition_fn = global_guard_condition_fn
+
+    def set_task_guard_condition_fn(self, task_guard_condition_fn):
+        if task_guard_condition_fn is not None and not hasattr(task_guard_condition_fn, '__call__'):
+            raise AssertionError(f'GuardedTaskTreesManager: The parameter task_guard_condition is not a function')
+        self.custom_task_guard_condition_fn = task_guard_condition_fn       
+    
+    # override the submit_task method
+    def submit_task(self, the_task:BasicTask) -> bool:
+        if self.global_guard_activated or self.task_guard_activated:
+            rospy.logerr(f'GuardedTaskTreesManager: submit a new task when the Guard is still activated -> call reset_guard before submitting tasks')            
+            return False
+        return BasicTaskTreesManager.submit_task(self, the_task)
+    
+    # reset the guard activation
+    def reset_guard(self):
+        if (self.custom_global_guard_condition_fn is not None and self.custom_global_guard_condition_fn() == False) or \
+            (self.custom_task_guard_condition_fn is not None and self.custom_task_guard_condition_fn() == False):
+            rospy.logwarn(f'{__class__.__name__} (reset_guard): Unable to reset guard activation status because the guard condition is still False')
+            return
+        self.global_guard_activated = self.task_guard_activated = False
+    
+    # querying the global guard activation
+    def is_global_guard_activated(self):
+        return self.global_guard_activated
+    
+    # querying the task guard activation    
+    def is_task_guard_activated(self):
+        return self.task_guard_activated
+
+    def _build_tree_skeleton(self):
+        self.do_task_selector = py_trees.composites.Selector('do_tasks_selector_branch', memory=True, children=[
+                Print(f'One of the behaviours in the do_work_branch FAILED', print_tree=False),
+                HandleTaskFailure('handle_task_failure', self.arm_commander),
+            ],)
+        self.cancellable_do_tasks_branch = py_trees.composites.Sequence (
+            'cancellable_do_tasks_branch', memory=False, children = [
+                HandleTaskCancelled('handle_cancel_task', self.arm_commander),
+                self.do_task_selector,
+            ]
+        )
+        do_tasks_trunk = py_trees.composites.Sequence(
+            'do_work_trunk',
+            memory=True,
+            children=[
+                py_trees.behaviours.CheckBlackboardVariableExists(name='check_task_exists', variable_name='task'),
+                py_trees.behaviours.CheckBlackboardVariableValue(name='check_task_state', check=py_trees.common.ComparisonExpression(
+                            variable='task.state', value=TaskStates.SUBMITTED, operator=operator.eq)),
+                self.cancellable_do_tasks_branch,
+            ],
+        )
+        self.task_guard = py_trees.decorators.EternalGuard('guarded_task_trunk', condition=self._get_task_guard_condition,
+                                        child=do_tasks_trunk)
+        self.root_sequence = py_trees.composites.Sequence('root_sequence', memory=True, children=[
+            self.task_guard,
+            ])
+        self.global_guard = py_trees.decorators.EternalGuard('guarded_root_sequence', condition=self._get_global_guard_condition,
+                                        child=self.root_sequence)
+        self.the_root = BehaviourTree(self.global_guard) 
+        return self.the_root
 
 # ------------------------------------------
 if __name__=='__main__':

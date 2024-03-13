@@ -16,7 +16,7 @@ from py_trees.common import Status
 # robot control module
 from task_trees.behaviours_base import ConditionalBehaviour, ConditionalCommanderBehaviour
 import arm_commander.moveit_tools as moveit_tools
-from work_model import ScanRegionModel
+from scan_model import ScanRegionModel
 
 # ----------------------------------------------------------------------
 # Behaviour Classes for the Pick-n-Drop robot arm manipulation application
@@ -25,12 +25,12 @@ class DoScanProgram(ConditionalCommanderBehaviour):
     """ This behaviour moves the end-effector over a planar region according toa program
         The orientation of the end-effector is fixed.
     """
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None, scan_program:ScanRegionModel=None):
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, scan_program:ScanRegionModel=None):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         :param scan_program: the scan program
         :type scan_program: ScanRegionModel
         """
-        super(DoScanProgram, self).__init__(name, condition_fn, policy, arm_commander)
+        super(DoScanProgram, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, arm_commander=arm_commander)
         if scan_program is None:
             rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (scan_program) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')         
@@ -47,7 +47,7 @@ class DoScanProgram(ConditionalCommanderBehaviour):
             self.arm_commander.END_EFFECTOR_LINK, self.arm_commander.pose_in_frame('the_table'), 0.05, 0.05, 6.28))
         # send the command to the General Commander in an asynchronous manner
         self.arm_commander.move_to_position(x=xyz[0], y=xyz[1], z=xyz[2], cartesian=True, reference_frame='the_table', wait=False)
-        rospy.loginfo(f'DoScanProgram ({self.name}): started move to pose: {xyz}')   
+        rospy.loginfo(f'DoScanProgram ({self.name}): started move to pose: {xyz} in reference frame "the_table"')   
         return Status.RUNNING
     # the concrete implementation of the logic when the command is completed    
     def tidy_up(self):
@@ -55,37 +55,36 @@ class DoScanProgram(ConditionalCommanderBehaviour):
         self.scan_program.done_current()
         self.arm_commander.clear_path_constraints()
     
+# class SimGrabObject(Behaviour):
+#     """ This behaviour simulates the grab of an object
+#     """
+#     def __init__(self, name, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None):
+#         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
+#         """
+#         super(SimGrabObject, self).__init__(name, policy, arm_commander)
 
-class SimGrabObject(ConditionalCommanderBehaviour):
-    """ This behaviour simulates the grab of an object
-    """
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None):
-        """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
-        """
-        super(SimGrabObject, self).__init__(name, condition_fn, policy, arm_commander)
+#     # the concrete implementation of the logic when the General Commander is READY        
+#     def update_when_ready(self):       
+#         # send the command to the General Commander in an asynchronous manner
+#         rospy.loginfo(f'SimGrabObject: grab the object')         
 
-    # the concrete implementation of the logic when the General Commander is READY        
-    def update_when_ready(self):       
-        # send the command to the General Commander in an asynchronous manner
-        rospy.loginfo(f'SimGrabObject: grab the object')         
-
-        self.arm_commander.attach_object_to_end_effector('the_ball')
-        return Status.SUCCESS
+#         self.arm_commander.attach_object_to_end_effector('the_ball')
+#         return Status.SUCCESS
     
         
-class SimDropObject(ConditionalCommanderBehaviour):
-    """ This behaviour simulates dropping the object
-    """
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None):
-        """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
-        """
-        super(SimDropObject, self).__init__(name, condition_fn, policy, arm_commander)
+# class SimDropObject(Behaviour):
+#     """ This behaviour simulates dropping the object
+#     """
+#     def __init__(self, name, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None):
+#         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
+#         """
+#         super(SimDropObject, self).__init__(name, policy, arm_commander)
 
-    # the concrete implementation of the logic when the General Commander is READY        
-    def update_when_ready(self):       
-        # send the command to the General Commander in an asynchronous manner
-        rospy.loginfo(f'SimGrabObject: drop the object')         
-        self.arm_commander.detach_object_from_end_effector('the_ball')
-        self.arm_commander.remove_object('the_ball')
-        return Status.SUCCESS
+#     # the concrete implementation of the logic when the General Commander is READY        
+#     def update_when_ready(self):       
+#         # send the command to the General Commander in an asynchronous manner
+#         rospy.loginfo(f'SimGrabObject: drop the object')         
+#         self.arm_commander.detach_object_from_end_effector('the_ball')
+#         self.arm_commander.remove_object('the_ball')
+#         return Status.SUCCESS
     

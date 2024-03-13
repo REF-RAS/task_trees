@@ -75,7 +75,6 @@ class GridScanTaskTreesManager(TaskTreesManager):
         scene_config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
         self.the_scene:GridScanScene = GridScanScene(scene_config_file)
         # setup the robotic manipulation platform through the commander
-        self.arm_commander:GeneralCommander = arm_commander
         self._reset_commander()
         # setup simulation end-effector
         self.arm_commander.info(print=True)
@@ -196,7 +195,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
                 return False
         return True
     
-    def at_a_named_pose(self, query_current_reference_frame) -> bool:
+    def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
         result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
         # rospy.loginfo(f'at_home_pose: {result}')
@@ -225,19 +224,12 @@ class GridScanTaskTreesManager(TaskTreesManager):
             child=py_trees.composites.Sequence(
                 'calibrate_branch',
                 memory=True,
-                children=[
-                    py_trees.behaviours.CheckBlackboardVariableValue(
-                        name='check_calibrate_goal',
-                        check=py_trees.common.ComparisonExpression(variable='task.name', value=CalibrateTask, operator=operator.eq)),
-                    py_trees.behaviours.SetBlackboardVariable(
-                        name='set_state_to_working', variable_name='task.state', variable_value=TaskStates.WORKING, overwrite=True),     
+                children=[   
                     DoMoveXYZ('move_up_for_calibrate', [{'_fn': self.in_a_region, 'region':'regions.work'}, 
                                                         {'_fn': self.below_z, 'position':'tank.positions.hover'}], 
                                         arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.hover', reference_frame='the_tank', cartesian=True),
                     DoMoveNamedPose('move_home_for_calibrate', True, arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'), 
                     SimCalibrate('do_calibrate', self.arm_commander, scene=self.the_scene),
-                    py_trees.behaviours.SetBlackboardVariable(name='set_task_success', variable_name='task.state', 
-                                                              variable_value=TaskStates.SUCCEEDED, overwrite=True),
                 ],
             ),
         )
@@ -255,11 +247,6 @@ class GridScanTaskTreesManager(TaskTreesManager):
                 'move_named_pose_branch',
                 memory=True,
                 children=[
-                    py_trees.behaviours.CheckBlackboardVariableValue(
-                        name='check_move_named_pose_task', check=py_trees.common.ComparisonExpression(
-                            variable='task.name', value=MoveNamedPoseTask, operator=operator.eq)),
-                    py_trees.behaviours.SetBlackboardVariable(
-                        name='set_state_to_working', variable_name='task.state', variable_value=TaskStates.WORKING, overwrite=True),
                     DoMoveXYZ('move_up_if_in_water', [{'_fn': self.in_a_region, 'region': 'regions.work'}, {'_fn': self.below_z, 'position':'tank.positions.hover'}], 
                                 arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.hover',
                                 reference_frame='the_tank', cartesian=True),                    
@@ -267,8 +254,6 @@ class GridScanTaskTreesManager(TaskTreesManager):
                                                         {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
                                     arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),
                     DoMoveNamedPose('move_task_pose', True, arm_commander=self.arm_commander, scene=self.the_scene, named_pose=self.query_grid_position_of_task),                            
-                    py_trees.behaviours.SetBlackboardVariable(name='set_task_success', variable_name='task.state', 
-                                                              variable_value=TaskStates.SUCCEEDED, overwrite=True),
                     ],
             ),
         )
@@ -286,11 +271,6 @@ class GridScanTaskTreesManager(TaskTreesManager):
                 'move_tank_pose_branch',
                 memory=True,
                 children=[
-                    py_trees.behaviours.CheckBlackboardVariableValue(
-                        name='check_tank_pose_task', check=py_trees.common.ComparisonExpression(
-                            variable='task.name', value=MoveGridPoseTask, operator=operator.eq)),                
-                    py_trees.behaviours.SetBlackboardVariable(
-                        name='set_state_to_working', variable_name='task.state', variable_value=TaskStates.WORKING, overwrite=True),
                     DoMoveNamedPose('move_home_if_in_inner_region', {'_fn': self.in_a_region, 'region': 'regions.inner'},
                                     arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'), 
                     DoMoveTankGridVisualCDROS('move_to_work_transition_pose', {'_fn': self.at_a_named_pose, 'named_pose':'named_poses.home'}, 
@@ -313,8 +293,6 @@ class GridScanTaskTreesManager(TaskTreesManager):
                     DoMoveXYZRPY('submerge_if_hover', [{'_fn': self.at_angle, 'rotation_pose': 'tank.rotations.delta'}, {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
                                 arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.submerged', target_rpy=self.query_logical_rpy_of_task, 
                                 reference_frame='the_tank'),                                                    
-                    py_trees.behaviours.SetBlackboardVariable(name='set_task_success', variable_name='task.state', 
-                                                              variable_value=TaskStates.SUCCEEDED, overwrite=True),
                     ],
             )
         )

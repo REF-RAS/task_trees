@@ -1,69 +1,46 @@
 # Task Trees: SDK for Rapid Robot Arm Manipulation Application Development 
 
-Task Trees is a SDK that can shorted the development cycle of behaviour-tree based robot arm manipulation applications. It is an outcome from the work on developing a model architecture for these applications. The model architecture is introduced in the report _Architecting Robot-Arm Applications with Robotic Manipulation Platforms and Behaviour Trees_ ([link](docs/assets/ArchitectingRobotApplicationsV2.pdf)).
+The **Task Trees** is a SDK designed to accelerate the development of behaviour-tree based robot arm manipulation applications. It is part of the model architecture for guiding the design of reusable and extensible robot arm manipulation applications.  The architecture also includes the **Arm Commander** [Github Repo](https://github.com/REF-RAS/arm_commander) as the interface to the underlying arm manipulation platform. 
 
-## Requirements
+## Overview of the Task Tree Architecture 
 
-The application runs in an environment with the following components:
-- Ubuntu 20.04
-- Python 3.8 or above
-- ROS Noetic with RViz
-- Moveit 1
-- Pytree 2.2.3
-- Jupyros (for execcuting ROS commands from Jupyter notebooks)
-- UR10 Configuration and/or Panda Configuration
-- The [arm_commander](https://github.com/REF-RAS/arm_commander) package
+The following figure shows the structure robot arm manipulation applications based on the task trees framework and the arm commander. The left-hand-side one represents a standalone application and the right-hand-side one simply has a ROS layer that separates the application logic from the task-level behaviour tree implementation.
 
-## Installation (Docker-based)
+![Application Architecture](./docs/assets/TaskTrees1.png)
 
-The arm_commander stems from an architecture that is robot model agnostic and arm manipulation platform agnostic. It hides away the
-details and offers a consistent application programming interface. 
+Designing and implementation arm manipulation tasks is challenging because such a task spans across low-level arm movement planning (i.e. collision avoidance), scene management (specification of collision objects), semantic-level action planning and execution, exception handling, and interfacing with application logic. 
 
-This implementation of arm_commander is specific to Moveit Version 1 (and therefore ROS Noetic). An environment installed with Moveit + ROS Noetic is needed. For your convenience, please refer to the docker image from the [docker deployment](https://github.com/REF-RAS/docker_deployment) repository of the REF-RAS group.
+The **Task Trees SDK**, supported by the **Arm Commander**, addresses the challenge with several programming resources. It adopts [py-trees](https://pypi.org/project/py-trees/), a popular Python behaviour tree module, as the basis and is therefore compatible with systems based on py-trees. 
 
+The task is the most significant concept in the architecture. It represents a sequence of behaviours to achieve an outcome, and at the implementation level it is in the form of a guarded sub-tree in the behaviour tree. The ticking of the sub-tree happens only when the behaviour tree is given the corresponding task to execute.  
+The Task Tree SDK comprises the following programming resources.
 
-## Installation (non-Docker-based)
+- [Extension package of py-tree based behaviour classes for arm manipulation](BEHAVIOURS.md). The package includes ready-to-use behaviour classes for robot arm manipulation and functionally rich base classes for creating custom behaviours.
+- [Task-based Behaviour trees builder and manager](TASK_TREES_MANAGER.md). The tree builder is a behaviour tree framework that is structured to handle task-based behaviour subtrees and ordinary py-tree based subtrees.  
+- [Scene configuration utilities](SCENE_SUPPORT.md). These utilities defines the structure of configuration files, the application programming interface to access the configurations, and the basis for developing custom logical to physical scene conversions. 
 
-The non-docker method assumes the starting point of having ROS Noetic installed on Ubuntu 20.04.
+## Installation
 
-### Install Moveit (Non-Docker Method) 
+Refer to the [Installation Guide](INSTALL.md).
 
-```
-sudo apt-get update
-sudo apt-get install ros-noetic-moveit -y
-```
+## Example: the Push-Block Demo
 
-### Install Arm Commander
+The [Push-Block Demo Program](demos/pushblock/DEMO_PUSHBLOCK.md) simulates a robot arm moving a block between 4 side channels on an elevated surface. 
 
-Create a catkin workspace.
-```
-mkdir -p ~/arm_commander_ws/src
-cd ~/arm_commander_ws/src
-```
+![Push-Block Animation](./demos/pushblock/docs/DemoPushBlock1.gif)
 
-Clone this repository to the `src` directory.
-```
-git clone git@github.com:REF-RAS/arm_commander.git
-git clone git@github.com:REF-RAS/task_trees.git
-```
+Moving the block from the current location to one of the three other channels is considered as one task, though there are totally six start-end combinations and also the possibility of the block left in the centre. Check out the implementation to find out how structured and concise it is of the demo program. Essentially, the Task Trees SDK supports the following features in the demo program that significantly accelerate the development. 
+- Using the pre-built move behaviour classes of the extension package instead of coding the robot manipulation in custom behaviour classes.
+- Using conditional behaviours for handling the robot arm in anomalous states (such as left in the centre) in the task subtree instead of coding additional subtrees for anomaly handling.
+- Using custom reference frames to exploit the symmetry in the set of block movements, which eliminates the need to develop a subtree dedicated to one start-end movement.
+- Using the task trees builder to add task subtrees and other prioritized behaviour subtrees, which eliminates the need to build the whole behaviour tree.
+- Delegating operations of the behaviour tree and lifecycle management of submitted tasks to the task trees manager.
 
-### Install a Robot Arm Model
+## Demo Programs and Programming Tutorials
 
-The demo program and the tutorial programs are designed to work with the dimension of a Panda.
+This package includes many demo programs and examples for illustrating the capability of the SDK and how to program behaviour trees with the programming resources of the SDK. 
 
-```
-cd ~/arm_commander_ws/src
-git clone https://github.com/ros-planning/panda_moveit_config.git -b noetic-devel 
-```
-
-### Build the Packages
-
-```
-rosdep install --from-paths src --ignore-src -r -y --rosdistro noetic
-source /opt/ros/noetic/setup.bash
-catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3
-```
-
+- Go to the [Demo Program and Programming Tutorial Catelogue](demos/DEMO_PROGRAMS.md)
 
 ## Author
 
@@ -72,4 +49,4 @@ Robotics and Autonomous Systems, Research Engineering Facility <br />
 Research Infrastructure <br />
 Queensland University of Technology <br />
 
-Latest update: Feb 2024
+Latest update: Mar 2024

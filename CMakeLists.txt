@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   std_srvs
-  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -67,16 +66,13 @@ catkin_python_setup()
 add_action_files( 
   FILES 
   Task.action
-  Calibrate.action
-  Move.action
-  Reset.action
 ) 
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages( 
   DEPENDENCIES 
-  std_srvs 
-  std_msgs 
+#  std_srvs 
+#  std_msgs 
   actionlib_msgs
 )
 
@@ -166,10 +162,10 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  demos/pushblock/demo.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

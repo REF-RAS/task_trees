@@ -22,18 +22,18 @@ from py_trees.trees import BehaviourTree
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander
 from task_trees.states import COMPLETION_STATES
-from demos.gridscan.behaviours_gridscan import *
-from demos.gridscan.task_trees_manager_gridscan import *
+from behaviours_gridscan import *
+from task_trees_manager_gridscan import *
 
 # -- Test cases specialized for the Task Manager
 
-class GridScanTaskManagerTester():
-    """ Test cases specialized for the Task Manager
+class GridScanDemoApplication():
+    """ The application program for the Grid Scanning Demo 
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
         self.the_task_manager = GridScanTaskTreesManager(GeneralCommander('manipulator'))
-        self.the_task_manager.display_tree()
+
         self._test_main()
         rospy.spin()
 
@@ -85,7 +85,7 @@ class GridScanTaskManagerTester():
 if __name__=='__main__':
     rospy.init_node('run_task_manager_demo', anonymous=False)
     try:
-        GridScanTaskManagerTester()
+        GridScanDemoApplication()
         rospy.loginfo('task_manager_demo is running')
         rospy.spin()
     except rospy.ROSInterruptException as e:

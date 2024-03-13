@@ -9,7 +9,7 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import operator, yaml, os, math, random, copy, sys, signal, threading
+import numbers
 from enum import Enum
 from collections import namedtuple, defaultdict
 import rospy
@@ -20,6 +20,7 @@ from py_trees.common import Status
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, GeneralCommanderStates
 from task_trees.states import TaskStates
+from task_trees.task_scene import Scene
 
 # -----------------------------------------------------------------
 # The base behaviours as an extension to PyTrees for working
@@ -35,24 +36,24 @@ class ConditionalBehaviour(Behaviour):
     """ 
     # the policies defined for the PyTree status to return if the condition is False 
     class Policies(Enum):
-        SUCCESS_IF_FALSE_POLICY = 0  # suitable for use under a Sequence composite node  
+        SUCCESS_IF_FALSE_POLICY = 0  # suitable for use under a Sequence or Parallel composite node  
         FAILURE_IF_FALSE_POLICY = 1  # suitable for use under a Selector composite node
     # the namedtuple for better readability of an internal data structure 
     ConditionSpec = namedtuple('ConditionSpec', ['fn', 'inverted', 'kwargs']) 
     # the constructor
-    def __init__(self, name:str, condition_fn=True, policy:Policies=Policies.SUCCESS_IF_FALSE_POLICY):
+    def __init__(self, name:str, condition_fn=True, condition_policy:Policies=None):
         """ the constructor for this abstract class
         :param name: behaviour name
         :type name: str
         :param condition_fn: specification of condition, defaults to True
         :type condition_fn: bool, function, dict or list containing the aforementioned, optional
-        :param policy: the PyTrees status to return when the condition is evaluated to False, defaults to Policies.SUCCESS_IF_FALSE_POLICY
-        :type policy: Policies, optional
+        :param condition_policy: the PyTrees status to return when the condition is evaluated to False, defaults to auto-detect the parent class
+        :type condition_policy: Policies, optional
         """
         super(ConditionalBehaviour, self).__init__(name)
         self.condition_result = None
         self.condition_list = self._preprocess_condition_fn(condition_fn)
-        self.policy:ConditionalBehaviour.Policies = policy
+        self.condition_policy:ConditionalBehaviour.Policies = condition_policy
                 
         global evaluation_records 
         evaluation_records = defaultdict(lambda: None)
@@ -123,14 +124,14 @@ class ConditionalBehaviour(Behaviour):
                 try:
                     result = spec.fn(**(spec.kwargs))
                 except TypeError as e:
-                    rospy.logerr(f'{self.__class__.__name__} Error in specifying the condition_fn for a behaviour: {e}')
+                    rospy.logerr(f'{type(self).__name__} Error in specifying the condition_fn for a behaviour: {e}')
                     raise
             result = not result if spec.inverted else result
             # print result when first evaluated or result changed
             arguments = ' '.join([str(v) for v in spec.kwargs.values()]) if spec.kwargs is not None else ' '
             if (spec.fn, arguments) not in evaluation_records or evaluation_records[(spec.fn, arguments)] != result:
                 modifier = 'NOT ' if spec.inverted else ''
-                rospy.loginfo(f'condition "{modifier}{spec.fn.__name__} ({arguments})" changed to: {result}')
+                rospy.loginfo(f'{type(self).__name__} ({self.name}) condition "{modifier}{spec.fn.__name__} ({arguments})" changed to: {result}')
                 evaluation_records[(spec.fn, arguments)] = result                
             if not result:
                 return False 
@@ -146,9 +147,14 @@ class ConditionalBehaviour(Behaviour):
         need_to_run_behaviour = self._is_condition_satified()
         if need_to_run_behaviour:
             return self.update_if_true()
-        else:
-            return_state = Status.SUCCESS if self.policy == ConditionalBehaviour.SUCCESS_IF_FALSE_POLICY else Status.FAILURE
+        elif self.condition_policy is not None:
+            return_state = Status.SUCCESS if self.condition_policy == ConditionalBehaviour.SUCCESS_IF_FALSE_POLICY else Status.FAILURE
             return return_state
+        else:
+            if self.parent is not None:
+                if isinstance(self.parent, py_trees.composites.Selector):
+                    return Status.FAILURE
+            return Status.SUCCESS
     
     # a placeholder function to be overridden in a subclass
     def update_if_true(self) -> Status:
@@ -166,19 +172,19 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
     """ The base Behaviour class supporting the implementation of Behaviour subclasses that uses the General Commander, and it
         has included logic for managing the states of the General Commander
     """
-    def __init__(self, name:str, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, 
+    def __init__(self, name:str, condition_fn=True, condition_policy=None, 
                  arm_commander:GeneralCommander=None, reference_frame=None):
         """ the constructor for this abstract class
         :param name: behaviour name
         :type name: str
         :param condition_fn: specification of condition, defaults to True
         :type condition_fn: bool, function, dict or list containing the aforementioned, optional
-        :param policy: the PyTrees status to return when the condition is evaluated to False, defaults to Policies.SUCCESS_IF_FALSE_POLICY
-        :type policy: Policies, optional
+        :param condition_policy: the PyTrees status to return when the condition is evaluated to False, defaults to auto-detect the parent class
+        :type condition_policy: Policies, optional
         :param arm_commander: the general commander to use in this behavour, defaults to None
         :type arm_commander: GeneralCommander
         """
-        super(ConditionalCommanderBehaviour, self).__init__(name, condition_fn, policy)
+        super(ConditionalCommanderBehaviour, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy)
         if arm_commander is None:
             rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (arm_commander) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
@@ -210,9 +216,14 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
             # rospy.loginfo(f'{self.__class__.__name__} condition {self.name}: {need_to_run_behaviour}')
             if need_to_run_behaviour:
                 return self.update_when_ready()
-            else:
-                return_state = Status.SUCCESS if self.policy == ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY else Status.FAILURE
+            elif self.condition_policy is not None:
+                return_state = Status.SUCCESS if self.condition_policy == ConditionalBehaviour.SUCCESS_IF_FALSE_POLICY else Status.FAILURE
                 return return_state
+            else:
+                if self.parent is not None:
+                    if isinstance(self.parent, py_trees.composites.Selector):
+                        return Status.FAILURE
+                return Status.SUCCESS       
         elif self.commander_state == GeneralCommanderStates.BUSY:
             return self.update_when_busy()
         elif self.commander_state == GeneralCommanderStates.SUCCEEDED:
@@ -252,7 +263,66 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
         if self.arm_commander.get_commander_state() == GeneralCommanderStates.BUSY:
             # rospy.loginfo(f'ConditionalCommanderBehaviour terminate {self.name} abort move')
             self.arm_commander.abort_move()
-            
+
+class SceneConditionalCommanderBehaviour(ConditionalCommanderBehaviour):
+    """ The base Behaviour class supporting the implementation of Behaviour subclasses that uses the General Commander
+        and the Scene Configuration
+    """
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
+                 scene=None, reference_frame=None):
+        """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
+        :param named_pose: the named pose
+        :type named_pose: a string or a function that returns the named_pose as a string
+        """
+        super(SceneConditionalCommanderBehaviour, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
+                                                                 arm_commander=arm_commander, reference_frame=reference_frame)
+        if scene is None:
+            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+        self.the_scene:Scene = scene
+
+    def _is_physical_target(self, target) -> bool:
+        return not (target is None or type(target) not in [list, tuple] or not all([(isinstance(n, numbers.Number) or n is None) for n in target]) or len(target) != 3)
+
+    # the method containing the main functionality of this class providing to the subclasses
+    # it processes a 'composite_target' and returns a physical target (a list of three numbers) 
+    def compute_physical_target(self, composite_target, logical_lookup_fn=None, default_target=None) -> list:
+        if composite_target is None:
+            return default_target
+        if type(composite_target) in [list, tuple]:
+        # test if it is a list of all numbers, warp it
+            if all([(isinstance(n, numbers.Number) or n is None) for n in composite_target]):
+                composite_target_list = [composite_target]
+            else: # if the list is a composite, leave it as it is
+                composite_target_list = composite_target
+        else:
+        # add the item (which can be a function or a string logical xyz), wrap it in a list for unified processing of a compositional list
+            composite_target_list = [composite_target]
+        # add the default xyz to the end of the compositional list
+        if default_target is not None:
+            composite_target_list.append(default_target)
+        # initialize the placeholder
+        physical = [None] * 3
+        # iterate through each item in the compositional list
+        for item in composite_target_list:
+            # - the item is a function, call it to obtain a numeric xyz as a list or a string logical xyz
+            if hasattr(item, '__call__'):
+                item = item()
+            if not self._is_physical_target(item):
+                if logical_lookup_fn is not None:
+                    item = logical_lookup_fn(item)    # the function that converts a logical target to a physical target of a scene 
+                else:
+                    rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (scene) is None for processing a logical value {item} -> fix the missing scene parameter at behaviour creation')  
+                    raise AssertionError(f'A parameter should not be None nor missing')     
+            # - the item should be a list of three numbers
+            if not self._is_physical_target(item):
+                rospy.logerr(f'{__class__.__name__} ({self.name}): invalid item "{item}" in the omposite target -> fix the target specification (or its composition) at behaviour creation')       
+                raise AssertionError(f'A target position or orientation is wrongly specified')  
+            # - merge the item into the placeholder if the corresponding list element is None
+            for i, _ in enumerate(physical):
+                if physical[i] is None:
+                    physical[i] = item[i]
+        return physical    
+
 # A utility Behaviour that handles task failure situation that has happened in a subclass of CommanderBehaviour or 
 # ConditionalCommanderBehaviour
 class HandleTaskFailure(Behaviour):
@@ -383,15 +453,43 @@ class PrintPose(Behaviour):
         rospy.loginfo(f'- xyzrpy: {self.arm_commander.pose_in_frame_as_xyzrpy()}')
         rospy.loginfo(f'- joints: {self.arm_commander.current_joint_positons_as_list()}')
         return Status.SUCCESS
-    
+
+# A utility Behaviour used for tracing and debugging. It prints the pose of the end-effector in the reference frames
+# of a collision object or all objects
+class PrintPosesInFrame(PrintPose):
+    """ A utility Behaviour used for tracing and debugging. It prints a string message from a constant or a function that returns a string
+        and optionally the status of the subtree rooted at the parent of this behaviour.
+    """
+    def __init__(self, arm_commander:GeneralCommander=None, scene:Scene=None, reference_frame:str=None):
+        super(PrintPosesInFrame, self).__init__('print_pose_behaviour', arm_commander=arm_commander)
+        self.reference_frame = reference_frame
+        self.the_scene:Scene = scene
+    # A concrete implementation of the initialize function of PyTrees Behaviour    
+    def update(self):
+        super().update()
+        # if the msg is a function, call the function for the string message
+        if hasattr(self.reference_frame, '__call__'):
+            binded_reference_frame = self.reference_frame()
+        else:
+            binded_reference_frame = self.reference_frame
+        if binded_reference_frame is None:
+            binded_reference_frame = self.the_scene.list_object_names()
+        else:
+            binded_reference_frame = [binded_reference_frame]
+        rospy.loginfo(f'- PrintPose of the end-effector')
+        for frame in binded_reference_frame:
+            rospy.loginfo(f'- {frame}: {self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame=frame)}')
+        return Status.SUCCESS
+
 class SimAttachObject(ConditionalCommanderBehaviour):
     """ This behaviour attachs a collision object to the end effector
     """
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None, 
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
                  object_name=None, post_fn=None):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         """
-        super(SimAttachObject, self).__init__(name, condition_fn, policy, arm_commander)
+        super(SimAttachObject, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
+                                              arm_commander=arm_commander)
         if object_name is None:
             rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (object_name) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
@@ -411,11 +509,12 @@ class SimAttachObject(ConditionalCommanderBehaviour):
 class SimDetachObject(ConditionalCommanderBehaviour):
     """ This behaviour detachs a collision object from the behaviour
     """
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None, 
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
                  object_name=None, post_fn=None, to_remove=False):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         """
-        super(SimDetachObject, self).__init__(name, condition_fn, policy, arm_commander)
+        super(SimDetachObject, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
+                                              arm_commander=arm_commander)
         if object_name is None:
             rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (object_name) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
