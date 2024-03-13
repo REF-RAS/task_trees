@@ -30,7 +30,7 @@ from task_trees.task_trees_manager import TaskTreesManager
 
 # ---------------------------------------
 # The TaskManager specialized for this application
-class SimpleMoveTaskTreesManager(TaskTreesManager):
+class SimpleMoveTaskManager(TaskTreesManager):
     """ This is a subclass of TaskManager, for illustration of using the framework for developing behaviour trees
         The behaviour tree contains one behaviour, which moves to a RANDOM pose specified in xyz.
         The end-effector continuously move between random xyz positions.
@@ -42,10 +42,9 @@ class SimpleMoveTaskTreesManager(TaskTreesManager):
         :param spin_period_ms: the tick_tock period, defaults to 10 seconds
         :type spin_period_ms: int, optional
         """
-        super(SimpleMoveTaskTreesManager, self).__init__(arm_commander)
+        super(SimpleMoveTaskManager, self).__init__(arm_commander)
 
         # setup the robotic manipulation platform through the commander
-        self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
 
@@ -84,10 +83,9 @@ if __name__=='__main__':
     rospy.init_node('simple_move_example', anonymous=False)
     try:
         arm_commander = GeneralCommander('panda_arm')
-        the_task_manager = SimpleMoveTaskTreesManager(arm_commander)
+        the_task_manager = SimpleMoveTaskManager(arm_commander)
         # display the behaviour tree as an image
-        the_task_manager.display_tree(target_directory=os.path.dirname(__file__))
-        rospy.spin()
+        # the_task_manager.display_tree(target_directory=os.path.dirname(__file__))
     
         rospy.loginfo('simple_move_example is running')
         rospy.spin()

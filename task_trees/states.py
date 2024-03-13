@@ -17,15 +17,17 @@ class TaskStates(Enum):
     STANDBY = 0
     SUBMITTED = 1
     WORKING = 2
-    SUCCEEDED = 3
-    CANCELLED = 4  # the eternal guard is alerted and the current commander will be aborted
-    ABORTED = 5    # when the comamnder state has changed to ABORTED
-    FAILED = 6
+    SUCCEEDED = 3       # the task is successfully completed
+    CANCELLED = 4       # the task is being cancelled
+    ABORTED = 5         # a cancelled task has successfull abort the commander (state changed to ABORTED)
+    FAILED = 6          # an error has occured in the commander
+    GUARD_ABORTED = 7   # the eternal guard is alerted and the current task is aborted  
 
 # the list of states indicating completion of the task
 COMPLETION_STATES = [TaskStates.SUCCEEDED, 
                      TaskStates.ABORTED, 
-                     # TaskStates.CANCELLED,
+                     # TaskStates.CANCELLED,    # the task is not considered completed in the cancel state
+                     TaskStates.GUARD_ABORTED,
                      TaskStates.FAILED, 
                      TaskStates.INVALID] 
 

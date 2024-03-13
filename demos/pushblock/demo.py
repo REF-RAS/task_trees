@@ -18,11 +18,11 @@ import py_trees
 
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander
-from demos.pushblock.task_trees_manager_pushblock import *
+from task_trees_manager_pushblock import *
 
 # -- Test cases specialized for the Push Block Demo
-class PushBlockTaskManagerDemo():
-    """ Test cases specialized for the Push Block Demo
+class PushBlockDemoApplication():
+    """ The application program for the PushBlock Demo
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
@@ -31,8 +31,8 @@ class PushBlockTaskManagerDemo():
         
         self.arm_commander = GeneralCommander('panda_arm')
         self.the_task_manager = PushBlockTaskTreesManager(self.arm_commander)
-        self.the_task_manager.display_tree()
-        self.to_stop = False
+        # self.the_task_manager.display_tree()
+        
         self._run_demo()
         rospy.spin()
 
@@ -82,7 +82,8 @@ class PushBlockTaskManagerDemo():
         rospy.loginfo(f'=== Submit a MoveNamedPoseTask (home)')
         task_manager.submit_task(the_task:=MoveNamedPoseTask('named_poses.home'))
         the_task.wait_for_completion()   
-        # generate the block for simulation          
+        # generate the block for simulation 
+        task_manager.setup_objects()         
         task_manager.generate_the_object()
         # initialize variables
         is_random = False
@@ -113,7 +114,7 @@ class PushBlockTaskManagerDemo():
 if __name__=='__main__':
     rospy.init_node('run_pnd_task_manager_demo', anonymous=False)
     try:
-        PushBlockTaskManagerDemo()
+        PushBlockDemoApplication()
         rospy.loginfo('pnd_task_manager_demo is running')
         rospy.spin()
     except rospy.ROSInterruptException as e:

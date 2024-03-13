@@ -24,8 +24,8 @@ from arm_commander.commander_moveit import GeneralCommander
 import arm_commander.moveit_tools as moveit_tools
 
 from task_trees.states import TaskStates
-from task_trees.behaviours_base import SimAttachObject, SimDetachObject, PrintPose
-from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoMoveXYZRPY, DoRotate, PrintPosesInFrame
+from task_trees.behaviours_base import SimAttachObject, SimDetachObject, PrintPosesInFrame, PrintPose
+from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoMoveXYZRPY, DoRotate
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
 
@@ -84,7 +84,6 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
         self.the_scene = Scene(config_file)
         # setup the robotic manipulation platform through the commander
-        self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
         # self.arm_commander.set_workspace_walls(*(self.the_scene.query_config('regions.workspace')))
@@ -93,13 +92,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         for pose_name in self.named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
-
-        # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
-
+            
         # setup the blackboard and the two blackboard keys 'seen_object'
         self.the_blackboard.register_key(key='the_object', access=py_trees.common.Access.WRITE)      
        
@@ -113,7 +106,13 @@ class PushBlockTaskTreesManager(TaskTreesManager):
     
     # -----------------------------------------
     # Functions for the simulation (demo)
-    
+    def setup_objects(self):
+        # setup objects
+        for object_name in self.the_scene.list_object_names():
+            the_object = self.the_scene.get_object_config(object_name)
+            if the_object.type == 'box':
+                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
+
     def generate_the_object(self):
         self.the_object = dict()
         self.the_blackboard.the_object = self.the_object
@@ -191,20 +190,17 @@ class PushBlockTaskTreesManager(TaskTreesManager):
     
     # --------------------------------------
     # -- internal functions: conditions functions for behaviours for the building of the behaviour tree for this TaskManager
-    def task_is_timeout(self, duration=30):
-        # rospy.loginfo(f'task_timeout: {self.get_time_since_submit()} > {duration}')
-        return self._get_time_since_submit() > duration
 
     def in_a_region(self, logical_region) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
         return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, self.the_scene.query_config(logical_region))     
     
     def over_an_object(self, object_name) -> bool:
-        the_table = self.the_scene.get_object_config(object_name)
-        the_table_position_as_bbox = [the_table.xyz[0] - the_table.dimensions[0] / 2, the_table.xyz[1] - the_table.dimensions[1] / 2,
-                                    the_table.xyz[0] + the_table.dimensions[0] / 2, the_table.xyz[1] + the_table.dimensions[1] / 2]
+        the_object = self.the_scene.get_object_config(object_name)
+        the_object_position_as_bbox = [the_object.xyz[0] - the_object.dimensions[0] / 2, the_object.xyz[1] - the_object.dimensions[1] / 2,
+                                    the_object.xyz[0] + the_object.dimensions[0] / 2, the_object.xyz[1] + the_object.dimensions[1] / 2]
         current_pose = self.arm_commander.pose_of_robot_link()
-        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_table_position_as_bbox)   
+        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_object_position_as_bbox)   
      
     def on_or_above_z(self, position) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()

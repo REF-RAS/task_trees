@@ -30,7 +30,7 @@ class DoMoveTankGridVisualCDROS(DoMoveTankGrid):
         In addition, it uses the readings from a range finder (or other types of sensors) and cancel the command if collision is imminent.
         This behaviour is coupled to ROS and saves the readings from a ROS topic to an instance variable
     """   
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None, 
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
                 scene:GridScanScene=None, grid_position=None, constraint_fn=None):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         :param logical_pose: the tank logical pose, which is defined (tile_x, tile_y, cell_x, cell_y), or an alias as a string defined in the task scene
@@ -38,7 +38,8 @@ class DoMoveTankGridVisualCDROS(DoMoveTankGrid):
         :param z_level_pose: the z_level pose
         :type z_level_pose: a string representing the z_level_pose as defined in the task scene
         """        
-        super(DoMoveTankGridVisualCDROS, self).__init__(name, condition_fn, policy, arm_commander, scene, grid_position, constraint_fn)
+        super(DoMoveTankGridVisualCDROS, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, arm_commander=arm_commander, scene=scene, 
+                                                        grid_position=grid_position, constraint_fn=constraint_fn)
         self.MIN_DISTANCE = 10.0
         # subscribe to the ROS topic that publishes the readings of a range finder
         self.range_finder_sub = rospy.Subscriber('/sensor/range_finder', Float32, self._cb_range_finder_update)
@@ -73,7 +74,7 @@ class DoMoveTankGridVisualCDBlackboard(DoMoveTankGrid):
         In addition, it uses the readings from a range finder (or other types of sensors) and cancel the command if collision is imminent.
         This behaviour is not ROS based and assumes the readings is in the blackboard
     """   
-    def __init__(self, name, condition_fn=True, policy=ConditionalBehaviour.Policies.SUCCESS_IF_FALSE_POLICY, arm_commander=None, 
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
                 scene:GridScanScene=None, grid_position=None, constraint_fn=None):        
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         :param logical_pose: the tank logical pose, which is defined (tile_x, tile_y, cell_x, cell_y), or an alias as a string defined in the task scene
@@ -81,7 +82,9 @@ class DoMoveTankGridVisualCDBlackboard(DoMoveTankGrid):
         :param z_level_pose: the z_level pose
         :type z_level_pose: a string representing the z_level_pose as defined in the task scene
         """  
-        super(DoMoveTankGridVisualCDBlackboard, self).__init__(name, condition_fn, policy, arm_commander, scene, grid_position, constraint_fn)
+        super(DoMoveTankGridVisualCDBlackboard, self).__init__(name=name, condition_fn=condition_fn, constraint_policy=condition_policy, 
+                                                               arm_commander=arm_commander, scene=scene, grid_position=grid_position, 
+                                                               constraint_fn=constraint_fn)
         self.MIN_DISTANCE = 10.0
     # the concrete implementation of the logic when the General Commander is READY     
     def update_when_busy(self):

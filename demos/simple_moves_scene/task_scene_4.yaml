@@ -1,0 +1,21 @@
+scene:
+  named_poses: 
+    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+  positions:
+    default_z: [null, null, 0.5]
+  objects:
+    - name: area_1
+      type: box
+      model_file: null
+      dimensions: [0.2, 0.2, 0.01]
+      xyz: [0.4, 0.20, 0.00]
+      rpy: [0, 0, 3.14]
+    - name: area_2
+      type: box
+      model_file: null
+      dimensions: [0.2, 0.2, 0.01]
+      xyz: [0.4, -0.20, 0.00]
+      rpy: [0, 0, 3.14]
+subscenes:
+
+

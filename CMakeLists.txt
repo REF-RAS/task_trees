@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   std_srvs
-  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -67,16 +66,13 @@ catkin_python_setup()
 add_action_files( 
   FILES 
   Task.action
-  Calibrate.action
-  Move.action
-  Reset.action
 ) 
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages( 
   DEPENDENCIES 
-  std_srvs 
-  std_msgs 
+#  std_srvs 
+#  std_msgs 
   actionlib_msgs
 )
 

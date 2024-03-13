@@ -17,7 +17,7 @@ import rospy, actionlib
 import message_filters
 from std_msgs.msg import String
 # project modules
-from task_trees.demos.gridscan.demo import GridScanTaskManagerTester
+from task_trees.demos.gridscan.demo import GridScanDemoApplication
 
 # ----- the main program
 if __name__ == '__main__':
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     """
     rospy.init_node('run_task_manager_demo', anonymous=False)
     try:
-        GridScanTaskManagerTester()
+        GridScanDemoApplication()
         rospy.loginfo('task_manager_demo is running')
         rospy.spin()
     except rospy.ROSInterruptException as e:

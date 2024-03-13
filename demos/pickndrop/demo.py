@@ -19,7 +19,7 @@ import py_trees
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander
 from task_trees.states import COMPLETION_STATES
-from demos.pickndrop.task_trees_manager_pnd import *
+from task_trees_manager_pnd import *
 # -- Test cases specialized for the PickNDrop Demo
 
 class DemoStates(Enum):
@@ -30,8 +30,8 @@ class DemoStates(Enum):
     DROP = 4  # run the drop task
     STOP = 5
 
-class PNDTaskManagerDemo():
-    """ Test cases specialized for the PickNDrop Demo
+class PNDDemoApplication():
+    """ The application program for the PickNDrop Demo
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
@@ -40,7 +40,7 @@ class PNDTaskManagerDemo():
         
         self.arm_commander = GeneralCommander('panda_arm')
         self.the_task_manager = PNDTaskTreesManager(self.arm_commander)
-        self.the_task_manager.display_tree()
+
         self.to_stop = False
         self._run_demo()
         rospy.spin()
@@ -58,7 +58,6 @@ class PNDTaskManagerDemo():
         the_task = ScanTask()
         task_manager.submit_task(the_task)
         the_task.wait_for_completion()     
-
         rospy.loginfo(f'=== Test Finished')
 
     def _run_demo(self):
@@ -66,7 +65,7 @@ class PNDTaskManagerDemo():
         state = DemoStates.INIT
         the_task = None
         rospy.loginfo(f'=== PickNDrop Demo Started') 
-         
+        scene_setup = False
         while not self.to_stop:
             rospy.sleep(0.1)
             if state == DemoStates.INIT:
@@ -75,9 +74,15 @@ class PNDTaskManagerDemo():
                 state = DemoStates.SCAN
                 rospy.loginfo(f'=== PickNDrop INIT: Waiting for the Scan Task to WORKING')
                 the_task.wait_for_working()
-                rospy.loginfo(f'=== PickNDrop INIT: The Scan Task is WORKING and Generate a New Target')
+                rospy.loginfo(f'=== PickNDrop INIT: The Scan Task is WORKING, setup the scene if needed and generate a new target')
+                if not scene_setup:
+                    task_manager.setup_objects()
+                    scene_setup = True
                 self.the_task_manager.generate_a_ball()
             elif state == DemoStates.SCAN:
+                if the_task.state not in [TaskStates.WORKING]:
+                    rospy.loginfo(f'=== PickNDrop SCAN: Scan Failed and State changed to STOP')
+                    state = DemoStates.STOP    
                 self.the_task_manager.simulate_camera()
                 if self.the_blackboard.exists('seen_object'):
                     xyz = self.the_blackboard.seen_object
@@ -89,7 +94,7 @@ class PNDTaskManagerDemo():
             elif state == DemoStates.PICK:
                 the_task.wait_for_completion()
                 if the_task.get_state() not in [TaskStates.SUCCEEDED]:
-                    rospy.loginfo(f'=== PickNDrop PICK: Pick Failed')
+                    rospy.loginfo(f'=== PickNDrop PICK: Pick Failed and State changed to STOP')
                     state = DemoStates.STOP
                 else:
                     rospy.loginfo(f'=== PickNDrop PICK: Pick Successful and Submit Drop Task')
@@ -97,19 +102,20 @@ class PNDTaskManagerDemo():
                     state = DemoStates.DROP
             elif state == DemoStates.DROP:
                 the_task.wait_for_completion() 
-                rospy.loginfo(f'=== PickNDrop DROP: Drop Successful')
-                state = DemoStates.INIT
+                if the_task.get_state() in [TaskStates.SUCCEEDED]:
+                    rospy.loginfo(f'=== PickNDrop DROP: Drop Successful')
+                    state = DemoStates.INIT
+                else:
+                    rospy.loginfo(f'=== PickNDrop PICK: Drop Failed and State changed to STOP')
+                    state = DemoStates.STOP
             elif state == DemoStates.STOP:
-                rospy.loginfo(f'=== PickNDrop STOP: Submit a MoveNamedPoseTask to stow and then stop')
-                the_task = MoveNamedPoseTask('stow')
-                task_manager.submit_task(the_task)
-                the_task.wait_for_completion()       
-                return           
+                rospy.loginfo(f'=== PickNDrop STOP')    
+                return            
 
 if __name__=='__main__':
     rospy.init_node('run_pnd_task_manager_demo', anonymous=False)
     try:
-        PNDTaskManagerDemo()
+        PNDDemoApplication()
         rospy.loginfo('pnd_task_manager_demo is running')
         rospy.spin()
     except rospy.ROSInterruptException as e:
