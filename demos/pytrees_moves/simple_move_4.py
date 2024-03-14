@@ -27,6 +27,8 @@ from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate, DoM
 # The TaskManager specialized for this application
 class SimpleMovePyTreesApplication():
     """ This is an application building a behaviour tree using py-trees and the extension behaviour set from the task tree SDK
+        The behaviour tree contains one behaviour, which moves to a RANDOM pose specified in xyz and rpy.
+        The end-effector continuously move between random positions and rotations.  Some poses are invalid (due to self-collision).
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
         """ the constructor

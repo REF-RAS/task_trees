@@ -209,7 +209,7 @@ Note that the behaviour construction has the above function passed as the parame
 ```
 ## Links
 
-- Go back to [Demo Program Catelogue](../DEMO_PROGRAMS.md)
+- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
 - Go back to [README: Overview of the Task Trees SDK](README.md)
 
 ## Author

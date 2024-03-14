@@ -21,13 +21,18 @@ from py_trees.trees import BehaviourTree
 
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander
+import arm_commander.moveit_tools as moveit_tools
 
-from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate
+from task_trees.states import TaskStates
+from task_trees.behaviours_base import *
+from task_trees.behaviours_move import DoMovePose
+from task_trees.task_trees_manager import TaskTreesManager
 
+# ---------------------------------------
 # The TaskManager specialized for this application
-class SimpleMovePyTreesApplication():
-    """ This is an application building a behaviour tree using py-trees and the extension behaviour set from the task tree SDK
-        The behaviour tree contains two behaviours, each of which moves to a pose specified in xyz. 
+class SimpleMoveTaskManager(TaskTreesManager):
+    """ This is a subclass of TaskManager, for illustration of using the framework for developing behaviour trees
+        The behaviour tree contains two behaviours, each of which moves to a pose specified in xyzrpy
         The end-effector is moving between the two poses
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
@@ -37,28 +42,24 @@ class SimpleMovePyTreesApplication():
         :param spin_period_ms: the tick_tock period, defaults to 10 seconds
         :type spin_period_ms: int, optional
         """
+        super(SimpleMoveTaskManager, self).__init__(arm_commander)
 
         # setup the robotic manipulation platform through the commander
-        self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
-        self.arm_commander.wait_for_ready_to_move()
 
-        # build the behaviour tree
-        self.root_sequence = self.create_move_branch()
-        self.bt = BehaviourTree(self.root_sequence) 
-        # py_trees.display.render_dot_tree(self.bt.root)
+        # build and install the behavior tree
+        self._add_priority_branch(self.create_move_branch())
         
-        # spin the tree
-        self.the_thread = threading.Thread(target=lambda: self.bt.tick_tock(period_ms=spin_period_ms), daemon=True)
-        self.the_thread.start()  
+        # install and unleash the behaviour tree
+        self._install_bt_and_spin(self.bt, spin_period_ms)
     
     # -------------------------------------------------
     # --- create the behaviour tree and its branches
     
-    # A behaviour tree branch that moves to a specified position xyz
+    # A behaviour tree branch that moves between two specified positions in xyz
     def create_move_branch(self) -> Composite:
-        """ Return a behaviour tree branch that moves between two specified positions in xyz
+        """ Return a behaviour tree branch that moves between two specified positions in xyzrpy formats
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
@@ -66,8 +67,8 @@ class SimpleMovePyTreesApplication():
                 'move_branch',
                 memory=True,
                 children=[
-                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=[0.3, 0.0, 0.2]), 
-                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=[0.3, 0.0, 0.6]), 
+                    DoMovePose('move_xyzrpy', True, arm_commander=self.arm_commander, target_pose=[0.5, 0.0, 0.2, 3.14, 0, 1.58]), 
+                    DoMovePose('move_xyzrpy', True, arm_commander=self.arm_commander, target_pose=[0.5, 0.0, 0.5, 3.14, 0.2, 0]), 
                     ],
         )
         return move_branch
@@ -76,7 +77,9 @@ if __name__=='__main__':
     rospy.init_node('simple_move_example', anonymous=False)
     try:
         arm_commander = GeneralCommander('panda_arm')
-        the_task_manager = SimpleMovePyTreesApplication(arm_commander)
+        the_task_manager = SimpleMoveTaskManager(arm_commander)
+        # display the behaviour tree as an image
+        # the_task_manager.display_tree(target_directory=os.path.dirname(__file__))
     
         rospy.loginfo('simple_move_example is running')
         rospy.spin()

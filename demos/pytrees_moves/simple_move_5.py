@@ -27,6 +27,8 @@ from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate, DoM
 # The TaskManager specialized for this application
 class SimpleMovePyTreesApplication():
     """ This is an application building a behaviour tree using py-trees and the extension behaviour set from the task tree SDK
+        The behaviour tree contains one behaviour, which moves the end effector in a rectangular circuit, each side divided into 5 steps of displacement
+        On the last side of the rectangle, the step size is random between 0.01 and 0.09 meters. 
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
         """ the constructor

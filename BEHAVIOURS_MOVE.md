@@ -14,14 +14,18 @@ The following tabulates the move behaviour classes, the forms of acceptable targ
 
 ##### Module Name: task_trees.behaviours_move
 
-| Class Name | Target Pose | Constant Binding | Logical Binding | Late Binding | Composition | Reference Frame |
+| Class Name | Target Pose | Target Constant Binding | Target Logical Binding | Target Late Binding | Composition | Reference Frame |
 | --- | --- | --- | --- | --- | --- | --- |
 | DoMoveNamedPose | `named_pose` | No | Yes | No | No | No |
-| DoMovePose | `target_pose` a list of 6 or 7 numbers, Pose/PoseStamped | Yes | No | No | No | Constant and Late Binding |
+| DoMovePose | `target_pose` a list of 6 or 7 numbers, Pose or PoseStamped | Yes | No | Yes | No | Constant and Late Binding |
 | DoMoveXYZ | `target_xyz` a xyz list | Yes | Yes | Yes | Yes | Yes |
 | DoMoveXYZRPY | `target_xyz` a xyz list and `target_rpy` a rpy list | Yes | Yes | Yes | Yes | Constant and Late Binding |
 | DoRotate | `target_rpy` a rpy list | Yes | Yes | Yes | Yes | Constant and Late Binding |
 | DoMoveDisplaceXYZ | `dxyz` a list representing xyz displacement | Yes | Yes | Yes | Yes | Constant and Late Binding |
+| DoMoveMultiPoses | `target_poses` a list of poses (ref. `DoMovePose`)| Yes | No | Yes | No | Constant and Late Binding |
+| DoMoveMultiXYZ | `target_xyz_list` a list of xyz | Yes | Yes | Yes | Yes | Constant and Late Binding |
+
+The last two are multi-pose move behaviour classes. These behaviours support a continous movement that is composed of multiple waypoints or interediate poses.
 
 ##### Module Name: task_trees.behaviours_move_sense
 
@@ -147,6 +151,16 @@ The parameter `condition_fn` accepts many forms, which are described in the belo
 #![Conditional Function Spec](docs/assets/ConditionalFunctionSpec.png)
 
 The actual definitions of condition functions are usually defined in the task trees manager (i.e. a subclass) so that these functions have access to the other instance variables such as the `arm_commander`.
+
+#### Multi-Pose Move Behaviour Classes
+
+The behaviour classes `DoMoveMultiXYZ` and `DoMoveMultiPose` supports continuous movement made up of multiple waypoints or intermediate poses. The use cases are quite different.
+
+The behaviour class `DoMoveMultiXYZ` supports compositional waypoint xyz positions, and physical, logical, and late binding of every waypoint positions. The rotation will remain unchanged at each waypoint. Specification of the waypoints is visible in the behaviour tree building code.
+
+The other multi-pose behaviour class `DoMoveMultiPose` supports specification of both position and rotation in every waypoint pose, but does not support compositional nor logical and late binding of every waypoint pose. It does support tick-tock time generation of the list of waypoints by a function, however, the waypoints are no longer visible in the behaviour tree building code.
+
+![Multi Move 1](demos/simple_moves/docs/TutorialMultiMove1.gif)
 
 ## Links
 

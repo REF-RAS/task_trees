@@ -14,6 +14,7 @@ import rospy
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 from std_msgs.msg import Float32
+from geometry_msgs.msg import Pose, PoseStamped
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, GeneralCommanderStates
 from task_trees.behaviours_base import ConditionalBehaviour, SceneConditionalCommanderBehaviour, PrintPose
@@ -55,8 +56,7 @@ class DoMoveNamedPose(SceneConditionalCommanderBehaviour):
         return Status.RUNNING
 
 class DoMovePose(SceneConditionalCommanderBehaviour):
-    """ This behaviour moves the end-effector to a pose defined in the frame of the work area in a cartesian manner. 
-        The roll and pitch components of the orientation of the end-effector is fixed.
+    """ This behaviour moves the end-effector to a pose defined in a reference frame according to a path planner. 
     """
     def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
                 scene=None, target_pose=None, reference_frame=None):
@@ -64,7 +64,7 @@ class DoMovePose(SceneConditionalCommanderBehaviour):
         :param the_scene: the scene model for the handling of logical positions specified in the target xyz
         :type the_scene: Scene
         :param target_pose: the target pose
-        :type target_pose: a list of 6 numbers, 7 numbers, Pose, or PoseStamped
+        :type target_pose: a list of 6 numbers, 7 numbers, Pose, or PoseStamped, or a function that returns the above
         :param reference_frame: the reference_frame
         :type reference_frame: a string representing the reference_frame      
         """
@@ -72,15 +72,22 @@ class DoMovePose(SceneConditionalCommanderBehaviour):
                                          arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_pose is None:
             rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_pose) is None -> fix the missing value at behaviour construction')
-            raise AssertionError(f'A parameter should not be None nor missing')    
+            raise AssertionError(f'A parameter should not be None nor missing') 
+        if not hasattr(target_pose, '__call__') and type(target_pose) not in [Pose, PoseStamped, list, tuple]:
+            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_pose) is not of an acceptable type -> use Pose, PoseStamped, 6-list or 7-list at behaviour construction')
+            raise AssertionError(f'The paramete (target_pose) should be of the acceptable type')  
         self.target_pose = target_pose
-        
         
     # the concrete implementation of the logic when the General Commander is READY        
     def update_when_ready(self):
+        # resolve the late binding target pose and reference frame
         binded_reference_frame = self._bind_reference_frame(self.reference_frame)
-        self.arm_commander.move_to_pose(self.target_pose, binded_reference_frame, wait=False)
-        rospy.loginfo(f'DoMovePose ({self.name}): started move to pose: {self.target_pose} in reference frame "{binded_reference_frame}"')   
+        if hasattr(self.target_pose, '__call__'):
+            binded_target_pose = self.target_pose()
+        else:
+            binded_target_pose = self.target_pose
+        self.arm_commander.move_to_pose(binded_target_pose, binded_reference_frame, wait=False)
+        rospy.loginfo(f'DoMovePose ({self.name}): started move to pose: {binded_target_pose} in reference frame "{binded_reference_frame}"')   
         return Status.RUNNING
     
     # the concrete implementation of the logic when the command is completed    
@@ -280,4 +287,85 @@ class DoRotate(SceneConditionalCommanderBehaviour):
     def tidy_up(self):
         super().tidy_up()
         self.arm_commander.clear_path_constraints()
+    
+class DoMoveMultiPose(SceneConditionalCommanderBehaviour):
+    """ This behaviour moves the end-effector to multiple poses defined in a reference frame in a cartesian manner. 
+    """
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
+                scene=None, target_poses=None, reference_frame=None):
+        """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
+        :param the_scene: the scene model for the handling of logical positions specified in the target xyz
+        :type the_scene: Scene
+        :param target_poses: a list of target poses, each of which can be one of the acceptable format of poses, and alternatively a function that returns a list of constant target poses
+        :type target_poses: a list of poses, each of which the format is either a list of 6 numbers, 7 numbers, Pose, or PoseStamped, or instead a function returning a list of constant target poses
+        :param reference_frame: the reference_frame
+        :type reference_frame: a string representing the reference_frame      
+        """
+        super(DoMoveMultiPose, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
+                                         arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
+        if target_poses is None:
+            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_poses) is None -> fix the missing value at behaviour construction')
+            raise AssertionError(f'A parameter should not be None nor missing') 
+        if not hasattr(target_poses, '__call__') and type(target_poses) not in [list, tuple]:
+            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_poses) is not of an acceptable type -> make sure a function or a list of poses used at construction')
+            raise AssertionError(f'The parameter (target_poses) should be of the acceptable type')  
+        self.target_poses = target_poses
+        
+    # the concrete implementation of the logic when the General Commander is READY        
+    def update_when_ready(self):
+        # resolve the late binding target pose and reference frame
+        binded_reference_frame = self._bind_reference_frame(self.reference_frame)
+        if hasattr(self.target_poses, '__call__'):
+            binded_target_poses = self.target_poses()
+        else:
+            binded_target_poses = self.target_poses
+        self.arm_commander.move_to_multi_poses(binded_target_poses, binded_reference_frame, wait=False)
+        rospy.loginfo(f'DoMoveMultiPose ({self.name}): started move to mutli-poses: {binded_target_poses} in reference frame "{binded_reference_frame}"')   
+        return Status.RUNNING
+
+
+class DoMoveMultiXYZ(SceneConditionalCommanderBehaviour):
+    """ This behaviour moves the end-effector to a pose defined in the frame of the work area in a cartesian manner. 
+        The roll and pitch components of the orientation of the end-effector is fixed.
+    """
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
+                scene=None, target_xyz_list=None, reference_frame=None):
+        """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
+        :param the_scene: the scene model for the handling of logical positions specified in the target xyz
+        :type the_scene: Scene
+        :param target_xyz: the target position, which can be specified in several ways
+        :type target_xyz: a composite that can be a list of 3 numbers, a function, a string, or a list of the aforementioned
+        :param reference_frame: the reference_frame
+        :type reference_frame: a string representing the reference_frame      
+        """
+        super(DoMoveMultiXYZ, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
+                                        arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
+        if target_xyz_list is None:
+            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_xyz_list) is None -> fix the missing value at behaviour construction')
+            raise AssertionError(f'A parameter should not be None nor missing')
+        if type(target_xyz_list) not in [list, tuple]:
+            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_xyz_list) is not a list nor tuple -> fix the value at behaviour construction')
+            raise AssertionError(f'A parameter should not be None nor missing')        
+        if scene is None:
+            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+        self.target_xyz_list = target_xyz_list
+        
+    # the concrete implementation of the logic when the General Commander is READY        
+    def update_when_ready(self):
+        binded_xyz_list = []
+        for target_xyz in self.target_xyz_list:
+            # evaluate physical target xyz
+            if self.the_scene is None:
+                xyz = self.compute_physical_target(target_xyz) 
+            else:
+                xyz = self.compute_physical_target(target_xyz, self.the_scene.query_config) 
+            if self.target_xyz_list is None or xyz is None:
+                rospy.logerr(f'DoMoveXYZ ({self.name}): invalid position xyz parameter {xyz}')
+                return Status.FAILURE 
+            binded_xyz_list.append(xyz)
+        # send command
+        binded_reference_frame = self._bind_reference_frame(self.reference_frame)
+        rospy.loginfo(f'DoMoveMultiXYZ ({self.name}): started move to multi poses: {binded_xyz_list} in reference frame "{binded_reference_frame}"')         
+        self.arm_commander.move_to_multi_positions(xyz_list=binded_xyz_list, reference_frame=binded_reference_frame, wait=False)
+        return Status.RUNNING
     

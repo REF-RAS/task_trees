@@ -40,7 +40,7 @@ Moving the block from the current location to one of the three other channels is
 
 This package includes many demo programs and examples for illustrating the capability of the SDK and how to program behaviour trees with the programming resources of the SDK. 
 
-- Go to the [Demo Program and Programming Tutorial Catelogue](demos/DEMO_PROGRAMS.md)
+- Go to the [Demo Program and Programming Tutorial Catalogue](demos/DEMO_PROGRAMS.md)
 
 ## Author
 

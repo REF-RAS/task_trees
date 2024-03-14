@@ -22,12 +22,12 @@ from py_trees.trees import BehaviourTree
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander
 
-from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate
+from task_trees.behaviours_move import DoMovePose
 
 # The TaskManager specialized for this application
 class SimpleMovePyTreesApplication():
     """ This is an application building a behaviour tree using py-trees and the extension behaviour set from the task tree SDK
-        The behaviour tree contains two behaviours, each of which moves to a pose specified in xyz. 
+        The behaviour tree contains two behaviours, each of which moves to a pose specified in xyzrpy
         The end-effector is moving between the two poses
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
@@ -66,8 +66,8 @@ class SimpleMovePyTreesApplication():
                 'move_branch',
                 memory=True,
                 children=[
-                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=[0.3, 0.0, 0.2]), 
-                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=[0.3, 0.0, 0.6]), 
+                    DoMovePose('move_xyzrpy', True, arm_commander=self.arm_commander, target_pose=[0.5, 0.0, 0.2, 3.14, 0, 1.58]), 
+                    DoMovePose('move_xyzrpy', True, arm_commander=self.arm_commander, target_pose=[0.5, 0.0, 0.5, 3.14, 0.2, 0]), 
                     ],
         )
         return move_branch

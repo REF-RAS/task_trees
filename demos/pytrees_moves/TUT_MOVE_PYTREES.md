@@ -165,9 +165,52 @@ The program `simple_move_5.py` shows a more complex move branch, which utilizes 
 ```
 ![Simple Move 5](docs/TutorialSimpleMove5.gif)
 
+## Example 6: Two Behaviours in a Sequence using `DoMovePose`
+
+The program `simple_move_6.py` defines a sequence with two behaviours using `DoMovePose`, with which both position and rotation can be specified.
+```
+    def create_move_branch(self) -> Composite:
+
+        move_branch = py_trees.composites.Sequence(
+                'move_branch',
+                memory=True,
+                children=[
+                    DoMovePose('move_xyzrpy', True, arm_commander=self.arm_commander, target_pose=[0.5, 0.0, 0.2, 3.14, 0, 1.58]), 
+                    DoMovePose('move_xyzrpy', True, arm_commander=self.arm_commander, target_pose=[0.5, 0.0, 0.5, 3.14, 0.2, 0]),
+                    ],)
+        return move_branch
+```
+
+## Example 7: Late Binding of the Target Pose in `DoMovePose`
+
+The program `simple_move_7.py` shows how the class `DoMovePose` can accept a function so that the target pose is determined at the tick-tock time. In this example, the target pose is based on the current pose with a random component from (x, y, z, yaw) changed by a random value.
+```
+    def create_move_branch(self) -> Composite:
+
+        move_branch = py_trees.composites.Sequence(
+                'move_branch',
+                memory=True,
+                children=[
+                    DoMovePose('move_random_step', True, arm_commander=self.arm_commander, target_pose=self.generate_random_move), 
+                    ],)
+        return move_branch
+```
+The function `self.generate_random_move` is listed below. It obtains the current pose in xyzrpy format and then 
+```
+    def generate_random_move(self) -> list:
+        xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
+        which_dim = random.randint(0, 4)
+        if which_dim in [0, 1, 2]:
+            xyzrpy[which_dim] += random.uniform(-0.2, 0.2)   # the x, y, or z component
+        elif which_dim == 3:
+            xyzrpy[5] += random.uniform(-1.57, 1.57)         # the yaw component
+        rospy.loginfo(f'generate_random_move: {xyzrpy}')
+        return xyzrpy
+```
+
 ## Links
 
-- Go back to [Demo Program Catelogue](../DEMO_PROGRAMS.md)
+- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
 - Go back to [README: Overview of the Task Trees SDK](README.md)
 
 ## Author
