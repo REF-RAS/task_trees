@@ -22,13 +22,13 @@ from py_trees.trees import BehaviourTree
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander
 
-from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate
+from task_trees.behaviours_move import DoMovePose
 
 # The TaskManager specialized for this application
 class SimpleMovePyTreesApplication():
     """ This is an application building a behaviour tree using py-trees and the extension behaviour set from the task tree SDK
-        The behaviour tree contains two behaviours, each of which moves to a pose specified in xyz. 
-        The end-effector is moving between the two poses
+        The behaviour tree contains one behaviour, which moves to a new pose generated from the current one with one component changed by a random number
+        The end-effector continuously move between these constrained random poses
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
         """ the constructor
@@ -43,7 +43,6 @@ class SimpleMovePyTreesApplication():
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
         self.arm_commander.wait_for_ready_to_move()
-
         # build the behaviour tree
         self.root_sequence = self.create_move_branch()
         self.bt = BehaviourTree(self.root_sequence) 
@@ -53,12 +52,24 @@ class SimpleMovePyTreesApplication():
         self.the_thread = threading.Thread(target=lambda: self.bt.tick_tock(period_ms=spin_period_ms), daemon=True)
         self.the_thread.start()  
     
+    # --------------------------------------------------
+    # --- functions for behaviour trees to generate late binding target poses    
+    def generate_random_move(self) -> list:
+        xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
+        which_dim = random.randint(0, 4)
+        if which_dim in [0, 1, 2]:
+            xyzrpy[which_dim] += random.uniform(-0.2, 0.2)
+        elif which_dim == 3:
+            xyzrpy[5] += random.uniform(-1.57, 1.57)
+        rospy.loginfo(f'generate_random_move: {xyzrpy}')
+        return xyzrpy
+
     # -------------------------------------------------
     # --- create the behaviour tree and its branches
     
-    # A behaviour tree branch that moves to a specified position xyz
+    # returns a behaviour tree branch that move the end_effector to random positions
     def create_move_branch(self) -> Composite:
-        """ Return a behaviour tree branch that moves between two specified positions in xyz
+        """ Returns a behaviour tree branch that move the end_effector to shift positions in a random step in one component
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
@@ -66,8 +77,7 @@ class SimpleMovePyTreesApplication():
                 'move_branch',
                 memory=True,
                 children=[
-                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=[0.3, 0.0, 0.2]), 
-                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=[0.3, 0.0, 0.6]), 
+                    DoMovePose('move_random_step', True, arm_commander=self.arm_commander, target_pose=self.generate_random_move), 
                     ],
         )
         return move_branch

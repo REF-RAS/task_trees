@@ -92,7 +92,7 @@ In the SCAN state, the application monitors results from the sensor. If a sphere
 
 ## Links
 
-- Go back to [Demo Program Catelogue](../DEMO_PROGRAMS.md)
+- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
 - Go back to [README: Overview of the Task Trees SDK](README.md)
 
 ## Author

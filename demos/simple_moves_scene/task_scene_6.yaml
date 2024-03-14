@@ -1,0 +1,12 @@
+scene:
+  named_poses: 
+    stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
+    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+  positions:
+    start: [null, -0.3, null]
+    end: [null, 0.3, null]
+    near: [0.4, null, null]
+    far: [0.6, null, null]
+subscenes:
+
+

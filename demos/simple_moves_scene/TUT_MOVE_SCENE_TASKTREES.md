@@ -206,9 +206,56 @@ Note that the behaviour construction has the above function passed as the parame
         )
         return move_branch
 ```
+
+## Example 6: Multi Pose Moves Specified by Logical and Late Binding XYZ with `DoMoveMultiXYZ`
+
+The program `move_scene_6.py` illustrates the use of the behaviour class `DoMoveMultiXYZ` that accepts a list of xyz positions, each of which can be a compositional position.
+
+The scene configuration `task_scene_6.yaml` defines four logical positions. It is clear that `start` and `end` are logical x positions, and that `near` and `far` are logical y positions.
+```
+  ...
+  positions:
+    start: [null, -0.3, null]
+    end: [null, 0.3, null]
+    near: [0.4, null, null]
+    far: [0.6, null, null]
+```
+
+The z position is generated at tick-tock time using the following function.
+```
+    def generate_random_z_change(self) -> list:
+        xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
+        xyz = [None, None, xyzrpy[2] + random.uniform(-0.1, 0.1)]
+        rospy.loginfo(f'generate_random_xyz: {xyz}')
+        return xyz
+```
+The following shows that the parameter `target_xyz_list` has four waypoints, each of them is a compositional value.
+```
+   def create_move_branch(self) -> Composite:
+
+        move_branch = py_trees.composites.Sequence(
+                'move_branch',
+                memory=True,
+                children=[
+                    DoMoveMultiXYZ('move_multi_xyz', True, arm_commander=self.arm_commander, scene=self.the_scene, target_xyz_list=[
+                                        ('positions.start', 'positions.near', self.generate_random_z_change),
+                                        ('positions.end', 'positions.near', self.generate_random_z_change),
+                                        ('positions.end', 'positions.far', self.generate_random_z_change),
+                                        ('positions.start', 'positions.far', self.generate_random_z_change),                                     
+                                     ]), 
+                    ],
+        )
+        return move_branch
+```
+The behaviour class `DoMoveMultiXYZ` supports compositional waypoint pose, and physical, logical, and late binding of every waypoint pose. 
+
+The other multi-pose behaviour class `DoMoveMultiPose` supports specification of both position and rotation in every waypoint pose, but does not support compositional nor logical and late binding of every waypoint pose. However, it does support tick-tock time generation of the list of waypoints by a function.  
+
+![Move Scene 6](docs/TutorialMoveScene6.gif)
+
 ## Links
 
-- Go back to [Demo Program Catelogue](../DEMO_PROGRAMS.md)
+- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
 - Go back to [README: Overview of the Task Trees SDK](README.md)
 
 ## Author

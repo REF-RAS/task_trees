@@ -100,7 +100,7 @@ The demo application implements a loop with getting the target area from the inp
 
 ## Links
 
-- Go back to [Demo Program Catelogue](../DEMO_PROGRAMS.md)
+- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
 - Go back to [README: Overview of the Task Trees SDK](README.md)
 
 ## Author
