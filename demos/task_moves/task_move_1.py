@@ -11,20 +11,11 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
+import sys, signal, random
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
-import arm_commander.moveit_tools as moveit_tools
-
-from task_trees.states import TaskStates
-from task_trees.behaviours_base import *
+from arm_commander.commander_moveit import GeneralCommander, logger
 from task_trees.behaviours_move import DoMoveXYZRPY, DoMoveDisplaceXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 
@@ -60,7 +51,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
     # --- functions for behaviour trees to generate late binding target poses
     def generate_random_dxyz(self) -> list:
         dxyz = [0.0, 0.0, random.uniform(-0.25, -0.35)]
-        rospy.loginfo(f'generate_random_dxyz: {dxyz}')
+        logger.info(f'generate_random_dxyz: {dxyz}')
         return dxyz
     
     # -------------------------------------------------
@@ -72,7 +63,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
-        move_branch = py_trees.composites.Sequence(
+        move_branch = Sequence( 
                 'move_branch',
                 memory=True,
                 children=[
@@ -87,7 +78,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
     # returns a behaviour tree branch that performs initialzation of the robot by moving to a prescribed pose
     def create_init_branch(self) -> Composite:
         # - the branch that executes the task MoveNamedPoseTask
-        init_branch = py_trees.composites.Sequence(
+        init_branch = Sequence(
                 'init_branch',
                 memory=True,
                 children=[
@@ -112,31 +103,27 @@ class TaskDemoApplication():
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # self.the_task_manager.display_tree()
         self._run_demo()
-        rospy.spin()
+        self.the_task_manager.spin()
         
     def stop(self, *args, **kwargs):
-        rospy.loginfo('stop signal received')
+        logger.info('stop signal received')
         self.the_task_manager.shutdown()
         sys.exit(0)
         
     def _run_demo(self):
         task_manager = self.the_task_manager
         the_task = None
-        rospy.loginfo(f'=== Task Demo Started') 
+        logger.info(f'=== Task Demo Started') 
         for i in range(10):
-            rospy.loginfo(f'=== Submit a MoveRectTask #{i + 1}')
+            logger.info(f'=== Submit a MoveRectTask #{i + 1}')
             task_manager.submit_task(the_task:=MoveRectTask())
             the_task.wait_for_completion()    
 
-    
 if __name__=='__main__':
-    rospy.init_node('simple_task_demo', anonymous=False)
+    # rospy.init_node('simple_task_demo', anonymous=False)
     try:
         TaskDemoApplication()
-        rospy.loginfo('simple_task_demo is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
-      
-
+        logger.info('simple_task_demo is running')
+    except Exception as e:
+        logger.exception(e)
 

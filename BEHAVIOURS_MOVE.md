@@ -42,7 +42,7 @@ The following shows an example of using move behaviour classes as children in a 
 ```
 def generate_random_xyz(self) -> list:
     xyz = [random.uniform(0.1, 0.5), random.uniform(-0.3, 0.3), random.uniform(0.2, 0.6)]
-    rospy.loginfo(f'generate_random_xyz: {xyz}')
+    logger.info(f'generate_random_xyz: {xyz}')
     return xyz
 ...
 def build_tree(self) -> Composite:

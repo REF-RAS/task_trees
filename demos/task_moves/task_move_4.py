@@ -11,20 +11,14 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
+import sys, signal, random, time
 import rospy
 from std_msgs.msg import Int8
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
-import arm_commander.moveit_tools as moveit_tools
-
-from task_trees.states import TaskStates, COMPLETION_STATES
+from arm_commander.commander_moveit import GeneralCommander, logger
+from task_trees.states import COMPLETION_STATES
 from task_trees.behaviours_base import *
 from task_trees.behaviours_move import DoMoveXYZRPY, DoMoveDisplaceXYZ, DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
@@ -70,7 +64,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
     # --- functions for behaviour trees to generate late binding target poses
     def generate_random_dxyz(self) -> list:
         dxyz = [0.0, 0.0, random.uniform(-0.25, -0.35)]
-        rospy.loginfo(f'generate_random_dxyz: {dxyz}')
+        logger.info(f'generate_random_dxyz: {dxyz}')
         return dxyz
     
     
@@ -80,7 +74,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
         min_y = self.the_blackboard.task.min_y
         max_y = self.the_blackboard.task.max_y           
         xyz = [None, random.uniform(min_y, max_y), None]
-        rospy.loginfo(f'generate_random_xyz: {xyz}')
+        logger.info(f'generate_random_xyz: {xyz}')
         return xyz
     
     # -------------------------------------------------
@@ -148,13 +142,13 @@ class TaskDemoROSServer():
         self.arm_commander.wait_for_ready_to_move()
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # subscribe to a topic for do commands
-        rospy.sleep(3.0) # wait for the task manager to finish initialization
+        time.sleep(3.0) # wait for the task manager to finish initialization
         self.do_topic_sub = rospy.Subscriber('/taskdemo/do', Int8, self._cb_do_received)
-        rospy.loginfo(f'The server is listening on /taskdemo/do')
+        logger.info(f'The server is listening on /taskdemo/do')
         self.the_task:BasicTask = None
         
     def stop(self, *args, **kwargs):
-        rospy.loginfo('stop signal received')
+        logger.info('stop signal received')
         self.the_task_manager.shutdown()
         sys.exit(0)
         
@@ -163,28 +157,28 @@ class TaskDemoROSServer():
         target = msg.data
         # check if there is a current incomplete task, and cancel the task 
         if self.the_task is not None and self.the_task.get_state() not in COMPLETION_STATES:
-            rospy.loginfo(f'=== CANCEL the current task')            
+            logger.info(f'=== CANCEL the current task')            
             self.the_task.cancel(wait=True)
         if target == 1:
-            rospy.loginfo(f'=== Submit a MoveRectTask')
+            logger.info(f'=== Submit a MoveRectTask')
             self.the_task_manager.submit_task(the_task:=MoveRectTask())
         elif target == 2:
-            rospy.loginfo(f'=== Submit a MoveRandomTask (-0.3, 0.3)')
+            logger.info(f'=== Submit a MoveRandomTask (-0.3, 0.3)')
             self.the_task_manager.submit_task(the_task:=MoveRandomTask(-0.3, 0.3))
         else:
             self.the_task = None
-            rospy.logwarn(f'TaskDemoROSServer: received unrecognized do command: {target}')
+            logger.warning(f'TaskDemoROSServer: received unrecognized do command: {target}')
             return
         self.the_task = the_task
 
 if __name__=='__main__':
-    rospy.init_node('simple_task_demo', anonymous=False)
+    rospy.init_node('task_ros_server', anonymous=False)
     try:
         TaskDemoROSServer()
-        rospy.loginfo('simple_task_demo is running')
+        logger.info('task_ros_server is running')
         rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+    except Exception as e:
+        logger.exception(e)
       
 
 

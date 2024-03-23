@@ -15,7 +15,7 @@ from std_msgs.msg import Bool
 # robot control module
 from task_trees.behaviours_base import ConditionalBehaviour
 from task_trees.behaviours_move import DoMoveXYZ
-
+from task_trees.tools import logger
 # -----------------------------------------------------------------------------------------------------
 # Advanced behaviours for illustrating the use of a ROS message topic to alert an imminent risk, such
 # as collision, and to abort the move behaviour
@@ -45,11 +45,11 @@ class DoMoveXYZGuardROS(DoMoveXYZ):
     def update_when_busy(self):
         # less verbose output of tracking the alert
         if self.previous_alert is None or self.previous_alert != self.current_alert:
-            rospy.loginfo(f'DoMoveXYZGuardROS: alert changed: {self.current_alert}')
+            logger.info(f'DoMoveXYZGuardROS: alert changed: {self.current_alert}')
             self.previous_alert = self.current_alert
         # ask the General Commander to cancel the command and return FAILURE if too close is True 
         if self.current_alert:
-            rospy.logerr(f'DoMoveXYZGuardROS ({self.name}): alert received (collision is imminent)')
+            logger.error(f'DoMoveXYZGuardROS ({self.name}): alert received (collision is imminent)')
             self.arm_commander.abort_move()
             the_task = self.the_blackboard.task
             the_task.result = f'INTERRUPTED RAISED BY COLLISION DETECTION (collision alert)'

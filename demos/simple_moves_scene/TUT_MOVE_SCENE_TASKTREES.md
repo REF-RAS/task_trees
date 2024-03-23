@@ -226,7 +226,7 @@ The z position is generated at tick-tock time using the following function.
     def generate_random_z_change(self) -> list:
         xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
         xyz = [None, None, xyzrpy[2] + random.uniform(-0.1, 0.1)]
-        rospy.loginfo(f'generate_random_xyz: {xyz}')
+        logger.info(f'generate_random_xyz: {xyz}')
         return xyz
 ```
 The following shows that the parameter `target_xyz_list` has four waypoints, each of them is a compositional value.

@@ -11,22 +11,18 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading
+import operator, os
 from math import isclose
-import rospy
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
 from moveit_msgs.msg import Constraints
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
 import arm_commander.moveit_tools as moveit_tools
 from task_scene_gridscan import GridScanScene
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate, DoMoveXYZRPY
 from task_trees.behaviours_base import *
 from task_trees.task_trees_manager import BasicTaskTreesManager, TaskTreesManager, BasicTask, TaskStates
+from task_trees.tools import logger
 from demos.gridscan.behaviours_gridscan import SimCalibrate, DoMoveTankGrid
 from demos.gridscan.behaviours_advanced import DoMoveTankGridVisualCDROS
 
@@ -50,7 +46,7 @@ class MoveNamedPoseTask(BasicTask):
         :type named_pose: str
         """
         if named_pose is None or type(named_pose) is not str or len(named_pose) == 0:
-            rospy.logerr(f'{__class__.__name__}: parameter (named_pose) is not an non-empty string -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__}: parameter (named_pose) is not an non-empty string -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter is invalid')  
         super(MoveNamedPoseTask, self).__init__('named_poses.' + named_pose)
         
@@ -63,7 +59,7 @@ class MoveGridPoseTask(BasicTask):
 class GridScanTaskTreesManager(TaskTreesManager):
     """ This is a subclass specialized for the GridScanTaskTreesManager application
     """
-    def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
+    def __init__(self, arm_commander, spin_period_ms:int=10):
         """ the constructor
         :param arm_commander: a general commander for a particular arm manipulator 
         :type arm_commander: GeneralCommander
@@ -157,7 +153,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
     # --------------------------------------
     # -- internal functions: conditions functions for behaviours for the building of the behaviour tree for this TaskManager
     def task_is_timeout(self, duration=30):
-        # rospy.loginfo(f'task_timeout: {self.get_time_since_submit()} > {duration}')
+        # logger.info(f'task_timeout: {self.get_time_since_submit()} > {duration}')
         return self._get_time_since_submit() > duration
 
     def in_a_region(self, region) -> bool:
@@ -176,13 +172,13 @@ class GridScanTaskTreesManager(TaskTreesManager):
     def wrong_orientation(self) -> bool:
         target_xyzrpy = self._get_task_target_xyzrpy()
         current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='the_tank')
-        # rospy.loginfo(f'same orientation: {target_xyzrpy[3:]} {current_xyzrpy[3:]}')
+        # logger.info(f'same orientation: {target_xyzrpy[3:]} {current_xyzrpy[3:]}')
         return not moveit_tools.same_rpy_with_tolerence(target_xyzrpy[3:], current_xyzrpy[3:], 0.1)
 
     def wrong_xy_at_tank(self) -> bool:
         target_xyzrpy = self._get_task_target_xyzrpy()
         current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='the_tank')
-        # rospy.loginfo(f'wrong_xy_at_tank: target {target_xyzrpy[:2]} current {current_xyzrpy[:2]}')
+        # logger.info(f'wrong_xy_at_tank: target {target_xyzrpy[:2]} current {current_xyzrpy[:2]}')
         return (abs(target_xyzrpy[0] - current_xyzrpy[0]) > 0.01) or (abs(target_xyzrpy[1] - current_xyzrpy[1]) > 0.01)
     
     def at_angle(self, rotation_pose) -> bool:
@@ -198,7 +194,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
         result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
-        # rospy.loginfo(f'at_home_pose: {result}')
+        # logger.info(f'at_home_pose: {result}')
         return result    
     
     # -----------------------------------------------

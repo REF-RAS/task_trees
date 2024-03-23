@@ -11,11 +11,7 @@ __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
 # general modules
-import os, json, random, signal, copy, glob, collections, sys, time, yaml, argparse
-# sys.path.append('/home/qcr/robotarchi_moveit_ws/devel/lib/python3/dist-packages')
-import rospy, actionlib
-import message_filters
-from std_msgs.msg import String
+import rospy
 # project modules
 from task_trees.demos.gridscan.demo import GridScanDemoApplication
 

@@ -11,20 +11,10 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
-import py_trees
+import random
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
-import arm_commander.moveit_tools as moveit_tools
-
-from task_trees.states import TaskStates
-from task_trees.behaviours_base import *
+from arm_commander.commander_moveit import GeneralCommander, logger
 from task_trees.behaviours_move import DoMovePose, DoMoveMultiPose
 from task_trees.task_trees_manager import TaskTreesManager
 
@@ -71,7 +61,7 @@ class MultiMoveTaskManager(TaskTreesManager):
             xyzrpy = xyzrpy.copy()
             xyzrpy[s[0]] += s[1]
             target_poses.append(xyzrpy)
-        rospy.loginfo(f'generate_scan_movement: {xyzrpy}')
+        logger.info(f'generate_scan_movement: {xyzrpy}')
         return target_poses
     
     def generate_random_rotations(self) -> list:
@@ -87,7 +77,7 @@ class MultiMoveTaskManager(TaskTreesManager):
             xyzrpy = xyzrpy.copy()
             xyzrpy[5] += random.uniform(-1.57, 1.57)
             target_poses.append(xyzrpy)
-        rospy.loginfo(f'generate_random_rotations: {xyzrpy}')
+        logger.info(f'generate_random_rotations: {xyzrpy}')
         return target_poses
 
     # -------------------------------------------------
@@ -100,7 +90,7 @@ class MultiMoveTaskManager(TaskTreesManager):
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
-        move_branch = py_trees.composites.Sequence(
+        move_branch = Sequence(
                 'move_branch',
                 memory=True,
                 children=[
@@ -112,17 +102,16 @@ class MultiMoveTaskManager(TaskTreesManager):
         return move_branch
     
 if __name__=='__main__':
-    rospy.init_node('simple_move_example', anonymous=False)
+    # rospy.init_node('simple_move_example', anonymous=False)
     try:
         arm_commander = GeneralCommander('panda_arm')
         the_task_manager = MultiMoveTaskManager(arm_commander)
         # display the behaviour tree as an image
         # the_task_manager.display_tree(target_directory=os.path.dirname(__file__))
-    
-        rospy.loginfo('simple_move_example is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+        logger.info(f'simple_move_example is running')
+        the_task_manager.spin()
+    except Exception as e:
+        logger.exception(e)
       
 
 

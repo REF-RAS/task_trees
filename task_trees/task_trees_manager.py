@@ -9,9 +9,7 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import threading, operator, signal, sys
-from enum import Enum
-import rospy
+import threading, operator, signal, sys, time, logging
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
 from py_trees.decorators import EternalGuard
@@ -19,6 +17,7 @@ from py_trees.trees import BehaviourTree
 
 from task_trees.behaviours_base import *
 from task_trees.states import TaskStates, COMPLETION_STATES
+from task_trees.tools import logger
 
 # -- The abstract class for implementing project specific Task for the TaskTreesManager
 class BasicTask():
@@ -70,7 +69,7 @@ class BasicTask():
         """
         self.update_state(TaskStates.SUBMITTED)
         self._cancel_fn = cancel_fn
-        self._submit_time = rospy.get_time()
+        self._submit_time = time.time()
         
     def cancel(self, wait=True) -> bool:
         """ cancel the task
@@ -83,7 +82,7 @@ class BasicTask():
             if wait:
                 self.wait_for_completion()
             return result
-        rospy.logerr('this task has not been submitted')
+        logger.error('This task has not been submitted -> check program logic')
         return False
 
     def get_goal_as_logical_pose(self):
@@ -123,21 +122,21 @@ class BasicTask():
             if self.state in until_states:
                 return self.state
             if previous_state is None or previous_state != self.state:
-                rospy.loginfo(f'{type(self).__name__} (wait_for_completion): the thread is waiting (task_state: {self.state}) ...')
+                logger.info(f'{type(self).__name__} (wait_for_completion): the thread is waiting (task_state: {self.state}) ...')
                 previous_state = self.state
-            rospy.sleep(0.5)
+            time.sleep(0.5)
     
     def wait_for_working(self):
-        """ a blocking function that returns when the task has entered into WORKING state
+        """ a blocking function that returns when the task has entered into WORKING state or GUARDED_ABORTED state
         """
         previous_state = None
         while True:
-            if self.state == TaskStates.WORKING:
+            if self.state in [TaskStates.WORKING, TaskStates.GUARD_ABORTED]:
                 return
             if previous_state is None or previous_state != self.state:
-                rospy.loginfo(f'wait_for_working task_state: {self.state} ...')
+                logger.info(f'wait_for_working task_state: {self.state} ...')
                 previous_state = self.state
-            rospy.sleep(0.5)             
+            time.sleep(0.5)             
                         
     def get_time_since_submit(self) -> float:
         """ return the time lapse since submission
@@ -146,7 +145,7 @@ class BasicTask():
         """
         if self._submit_time is None:
             return -1
-        return rospy.get_time() - self._submit_time
+        return time.time() - self._submit_time
     
     def get_commander_feedback(self) -> str:
         """ return the final feedback from the commander for error checking
@@ -164,14 +163,13 @@ class BasicTaskTreesManager:
         """ the constructor
         """
         signal.signal(signal.SIGINT, self.stop)
-
+        self.to_shutdown = False
         # setup the blackboard
         self.the_blackboard = py_trees.blackboard.Client()
         self.the_blackboard.register_key(key='task', access=py_trees.common.Access.WRITE)
         # the behaviour tree to be built
         self.bt = None
         
-
     # internal function for a subclass to install the sepcific behaviour trees and start the tick-tocking 
     def _install_bt_and_spin(self, bt:py_trees.trees.BehaviourTree, spin_period_ms:int=10, startup_wait_sec=3.0):
         """ The final function to call, which installs the behaviour trees and starts the tick-tocking at the given frequency.
@@ -182,10 +180,10 @@ class BasicTaskTreesManager:
         :type spin_period_ms: int, optional
         """
         if bt is None:
-            rospy.logerr(f'{__class__.__name__}: parameter (bt) is None -> fix the missing value at function call to _install_bt_and_spin')
+            logger.error(f'{__class__.__name__}: parameter (bt) is None -> fix the missing value at function call to _install_bt_and_spin')
             raise AssertionError(f'A parameter should not be None nor missing') 
         self.bt = bt
-        rospy.sleep(startup_wait_sec)
+        time.sleep(startup_wait_sec)
         # spin the tree
         self.the_thread = threading.Thread(target=lambda: 
             self.bt.tick_tock(period_ms=spin_period_ms, 
@@ -196,7 +194,7 @@ class BasicTaskTreesManager:
     # internal function: called by the task when it receives a cancel call
     def _cancel_task(self, the_task:BasicTask) -> bool:
         if self.the_blackboard.exists('task'):
-            rospy.logwarn(f'BasicTaskTreesManager (_cancel_task): {the_task.name} is CANCELLED (task state:{self.the_blackboard.task.state})')
+            logger.warning(f'BasicTaskTreesManager (_cancel_task): {type(the_task).__name__} is CANCELLED (task state:{self.the_blackboard.task.state})')
             if self.the_blackboard.task is not None and self.the_blackboard.task == the_task:
                 if self.the_blackboard.task.state in [TaskStates.SUBMITTED, TaskStates.WORKING]:
                     self.the_blackboard.task.update_state(TaskStates.CANCELLED)
@@ -211,21 +209,32 @@ class BasicTaskTreesManager:
     def _post_tick_handler(self, tree):
         pass    
     
-    # functions for handling the SIGINT signal
+    # ------------------------------------------------------------
+    # Task Trees functions for servicing the application
+
+    # function for handling the SIGINT signal
     def stop(self, *args, **kwargs):
-        rospy.logwarn(f'{__class__.__name__}: SIGNINT signal received -> interrupt the tick-tock of the behaviour tree and shutdown the task manager')
+        logger.warning(f'{__class__.__name__}: SIGNINT signal received -> interrupt the tick-tock of the behaviour tree and shutdown the task manager')
         self.shutdown()
         sys.exit(0)
-        
+
+    # function for preventing the main thread from terminating the application
+    def spin(self):
+        while not self.to_shutdown:
+            time.sleep(1.0)
+
     # shutdown the task manager
     def shutdown(self):
         """ Shutdown the task manager immediately
         """
+        # terminate the behaviour tree tick-tock
         if self.bt is not None:
             self.bt.interrupt()
             self.bt.shutdown()
         else:
-            rospy.logwarn(f'{__class__.__name__}: attempted to shutdown a task manager with no behaviour tree installed')
+            logger.warning(f'{__class__.__name__}: attempted to shutdown a task manager with no behaviour tree installed')
+        # terminate the spin
+        self.to_shutdown = True
         
     # returns the submitted task   
     def get_submitted_task(self) -> BasicTask:
@@ -248,7 +257,7 @@ class BasicTaskTreesManager:
         
         if self.the_blackboard.exists('task'):
             if self.the_blackboard.task.state in [TaskStates.SUBMITTED, TaskStates.WORKING]:
-                rospy.logerr(f'TaskTreesManager: submit a new task when a current task is SUBMITTED or WORKING')
+                logger.error(f'TaskTreesManager: submit a new task when a current task is SUBMITTED or WORKING')
                 return False
         the_task._set_submitted(self._cancel_task)
         self.the_blackboard.set('task', the_task, overwrite=True) 
@@ -259,7 +268,7 @@ class BasicTaskTreesManager:
         """ renders the behaviour tree of this task manager as a dot file
         """
         if self.bt is None:
-            rospy.logerr(f'{__class__.__name__}: attempted to display the bt of a task manager without one installed -> fix the subclass by assigning a behaviour tree to self.bt')
+            logger.error(f'{__class__.__name__}: attempted to display the bt of a task manager without one installed -> fix the subclass by assigning a behaviour tree to self.bt')
             raise AssertionError(f'A subclass of {__class__.__name__} has not assigned a behaviour tree to self.bt')         
         py_trees.display.render_dot_tree(self.bt.root)
 
@@ -276,7 +285,7 @@ class TaskTreesManager(BasicTaskTreesManager):
         """
         super(TaskTreesManager, self).__init__()
         if arm_commander is None:
-            rospy.logerr(f'{__class__.__name__}): parameter (arm_commander) is None -> fix the missing value at TaskTreesManager construction')
+            logger.error(f'{__class__.__name__}): parameter (arm_commander) is None -> fix the missing value at TaskTreesManager construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         self.arm_commander:GeneralCommander = arm_commander
         self.bt = self._build_tree_skeleton()
@@ -317,7 +326,7 @@ class TaskTreesManager(BasicTaskTreesManager):
         
     def _set_initialize_branch(self, branch:Composite):
         if self.num_initialize_branch > 0:
-            rospy.logerr(f'{__class__.__name__} (_set_initialize_branch): cannot set initialization branch more than once-> fix the subclass and avoid calling the function more then once')
+            logger.error(f'{__class__.__name__} (_set_initialize_branch): cannot set initialization branch more than once-> fix the subclass and avoid calling the function more then once')
             raise AssertionError(f'A parameter should not be None nor missing')  
         self.initialize_branch = py_trees.decorators.OneShot('init_oneshot_branch', policy = py_trees.common.OneShotPolicy.ON_COMPLETION, child=branch)
         self.root_sequence.insert_child(self.initialize_branch, 0)
@@ -330,7 +339,7 @@ class TaskTreesManager(BasicTaskTreesManager):
     
     def _add_task_branch(self, branch:Composite, task_class:type=None):
         if task_class is None:
-            rospy.logwarn(f'TaskTreesManager (_add_task_branch): task_class is None -> task decorations are assumed to be included in the parameter branch or provide the task_class at the function call')
+            logger.warning(f'TaskTreesManager (_add_task_branch): task_class is None -> task decorations are assumed to be included in the parameter branch or provide the task_class at the function call')
             task_branch = branch
         else:
             # - add a composite to the task branch
@@ -356,7 +365,7 @@ class TaskTreesManager(BasicTaskTreesManager):
         branch = self.bt.root if branch is None else branch
         if branch is None:
             return
-        rospy.loginfo(f'display tree {branch} {target_directory}')
+        logger.info(f'display tree {branch} {target_directory}')
         py_trees.display.render_dot_tree(branch, target_directory=target_directory)
 
 
@@ -411,7 +420,7 @@ class GuardedTaskTreesManager(TaskTreesManager):
     # return True if no alert should be made 
     def _get_global_guard_condition(self):
         #if self.custom_global_guard_condition_fn is not None:
-        #    rospy.loginfo(f'custom_global_guard_condition_fn: {self.custom_global_guard_condition_fn()}')
+        #    logger.info(f'custom_global_guard_condition_fn: {self.custom_global_guard_condition_fn()}')
         return not self.global_guard_activated and (self.custom_global_guard_condition_fn is None or self.custom_global_guard_condition_fn())
     
     # return True if no alert should be made    
@@ -432,15 +441,15 @@ class GuardedTaskTreesManager(TaskTreesManager):
     # override the submit_task method
     def submit_task(self, the_task:BasicTask) -> bool:
         if self.global_guard_activated or self.task_guard_activated:
-            rospy.logerr(f'GuardedTaskTreesManager: submit a new task when the Guard is still activated -> call reset_guard before submitting tasks')            
-            return False
+            logger.error(f'GuardedTaskTreesManager: submit a new task when the Guard is still activated -> call reset_guard before submitting tasks')            
+            return None
         return BasicTaskTreesManager.submit_task(self, the_task)
     
     # reset the guard activation
     def reset_guard(self):
         if (self.custom_global_guard_condition_fn is not None and self.custom_global_guard_condition_fn() == False) or \
             (self.custom_task_guard_condition_fn is not None and self.custom_task_guard_condition_fn() == False):
-            rospy.logwarn(f'{__class__.__name__} (reset_guard): Unable to reset guard activation status because the guard condition is still False')
+            logger.warning(f'{__class__.__name__} (reset_guard): Unable to reset guard activation status because the guard condition is still False')
             return
         self.global_guard_activated = self.task_guard_activated = False
     

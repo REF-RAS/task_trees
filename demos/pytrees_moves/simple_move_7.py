@@ -11,16 +11,12 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
-import py_trees
+import random, sys, signal, threading, random, time
 from py_trees.composites import Sequence, Parallel, Composite, Selector
 from py_trees.trees import BehaviourTree
 
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
+from arm_commander.commander_moveit import GeneralCommander, logger
 
 from task_trees.behaviours_move import DoMovePose
 
@@ -37,7 +33,7 @@ class SimpleMovePyTreesApplication():
         :param spin_period_ms: the tick_tock period, defaults to 10 seconds
         :type spin_period_ms: int, optional
         """
-
+        signal.signal(signal.SIGINT, self.stop)
         # setup the robotic manipulation platform through the commander
         self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
@@ -61,7 +57,7 @@ class SimpleMovePyTreesApplication():
             xyzrpy[which_dim] += random.uniform(-0.2, 0.2)
         elif which_dim == 3:
             xyzrpy[5] += random.uniform(-1.57, 1.57)
-        rospy.loginfo(f'generate_random_move: {xyzrpy}')
+        logger.info(f'generate_random_move: {xyzrpy}')
         return xyzrpy
 
     # -------------------------------------------------
@@ -73,7 +69,7 @@ class SimpleMovePyTreesApplication():
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
-        move_branch = py_trees.composites.Sequence(
+        move_branch = Sequence(
                 'move_branch',
                 memory=True,
                 children=[
@@ -81,17 +77,21 @@ class SimpleMovePyTreesApplication():
                     ],
         )
         return move_branch
-    
+
+    # The callback for the signal resulting from SIGINT pressing CTRL-C 
+    def stop(self, *args, **kwargs):
+        sys.exit(0)
+
 if __name__=='__main__':
-    rospy.init_node('simple_move_example', anonymous=False)
+    # rospy.init_node('simple_move_example', anonymous=False)
     try:
         arm_commander = GeneralCommander('panda_arm')
-        the_task_manager = SimpleMovePyTreesApplication(arm_commander)
-    
-        rospy.loginfo('simple_move_example is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+        the_application = SimpleMovePyTreesApplication(arm_commander)
+        logger.info('The simple_move_example is running')
+        # prevent the main thread from exit the program
+        while True: time.sleep(1.0)
+    except Exception as e:
+        logger.exception(e)
       
 
 

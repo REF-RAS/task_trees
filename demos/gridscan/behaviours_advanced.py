@@ -12,13 +12,13 @@ __status__ = 'Development'
 import operator, yaml, os, math, random, copy, sys, signal, threading
 from collections import namedtuple, defaultdict
 import rospy
+from std_msgs.msg import Float32
 from py_trees.common import Status
 # robot control module
 from task_trees.behaviours_base import ConditionalBehaviour
 from task_scene_gridscan import GridScanScene
+from task_trees.tools import logger
 from demos.gridscan.behaviours_gridscan import DoMoveTankGrid
-
-from std_msgs.msg import Float32
 
 # -----------------------------------------------------------------------------------------------------
 # Advanced behaviours for illustrating the versatility of the ConditionalCommanderBehaviour base class
@@ -56,11 +56,11 @@ class DoMoveTankGridVisualCDROS(DoMoveTankGrid):
         too_close = False if self.current_dist is None else self.current_dist < self.MIN_DISTANCE
         # less verbose output of the distance check
         if self.previous_too_close is None or self.previous_too_close != too_close:
-            rospy.loginfo(f'DoMoveXYAtTankVisualCDROS: too_close: {too_close}')
+            logger.info(f'DoMoveXYAtTankVisualCDROS: too_close: {too_close}')
             self.previous_too_close = too_close
         # ask the General Commander to cancel the command and return FAILURE if too close is True 
         if too_close:
-            rospy.logerr(f'DoMoveXYAtTankVisualCDROS ({self.name}): visual collision detection alert (too close)')
+            logger.error(f'DoMoveXYAtTankVisualCDROS ({self.name}): visual collision detection alert (too close)')
             self.arm_commander.abort_move()
             the_task = self.the_blackboard.task
             the_task.result = f'INTERRUPTED RAISED BY VISUAL COLLISION DETECTION (distance too close: {self.current_dist})'
@@ -93,11 +93,11 @@ class DoMoveTankGridVisualCDBlackboard(DoMoveTankGrid):
         current_dist = self.the_blackboard.range_finder
         too_close = False if current_dist is None else current_dist< self.MIN_DISTANCE
         if self.previous_too_close is None or self.previous_too_close != too_close:
-            rospy.loginfo(f'DoMoveXYAtTankVisualCDROS: too_close: {too_close}')
+            logger.info(f'DoMoveXYAtTankVisualCDROS: too_close: {too_close}')
             self.previous_too_close = too_close
         # ask the General Commander to cancel the command and return FAILURE if too close is True 
         if too_close:
-            rospy.logerr(f'DoMoveXYAtTankVisualCDROS ({self.name}): visual collision detection alert (too close)')
+            logger.error(f'DoMoveXYAtTankVisualCDROS ({self.name}): visual collision detection alert (too close)')
             self.arm_commander.abort_move()
             the_task = self.the_blackboard.task
             the_task.result = f'INTERRUPTED RAISED BY VISUAL COLLISION DETECTION (distance too close: {current_dist})'

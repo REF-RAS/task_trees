@@ -12,7 +12,6 @@ __status__ = 'Development'
 import numbers
 from enum import Enum
 from collections import namedtuple, defaultdict
-import rospy
 import py_trees
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
@@ -21,7 +20,7 @@ from py_trees.common import Status
 from arm_commander.commander_moveit import GeneralCommander, GeneralCommanderStates
 from task_trees.states import TaskStates
 from task_trees.task_scene import Scene
-
+from task_trees.tools import logger
 # -----------------------------------------------------------------
 # The base behaviours as an extension to PyTrees for working
 # with other components in a robot arm manipulation application
@@ -57,7 +56,7 @@ class ConditionalBehaviour(Behaviour):
                 
         global evaluation_records 
         evaluation_records = defaultdict(lambda: None)
-        # rospy.loginfo(f'Condition list: {self.__class__.__name__} {self.condition_list}')
+        # logger.info(f'Condition list: {self.__class__.__name__} {self.condition_list}')
 
     # internal function that checks the syntax of condition_fn and if it is valid, convert it into a list for more uniform and efficient evaluation
     # the list is returned to the constructor and saved to an instance variable
@@ -80,13 +79,13 @@ class ConditionalBehaviour(Behaviour):
                 elif type(item) == dict:
                     condition_fn_list.append(self._validate_condition_fn_dict(item))
                 else:
-                    rospy.logerr(f'{__class__.__name__} ({self.name}): the type for item index {i} as part of the parameter', 
+                    logger.error(f'{__class__.__name__} ({self.name}): the type for item index {i} as part of the parameter', 
                                      '(condition_fn or its late derivation) must be either a bool, a function, a dict, or a list/tuple',
                                      ' -> fix the condition_fn specification at the behaviour creation')
                     raise ValueError('The value of the parameter is invalid')
             return condition_fn_list
         else:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): the type of the parameter (condition_fn) must be ',
+            logger.error(f'{__class__.__name__} ({self.name}): the type of the parameter (condition_fn) must be ',
                                         'either a bool, a function, a dict, or a list/tuple',
                                         ' -> fix the condition_fn specification at the behaviour creation')
             raise ValueError('The value of the parameter is invalid')           
@@ -95,7 +94,7 @@ class ConditionalBehaviour(Behaviour):
     # in particular it should contains one of the keys: '_fn', '_not_fn"
     def _validate_condition_fn_dict(self, dict_item):
         if '_fn' in dict_item and '_not_fn' in dict_item:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): the parameter (condition_fn) is a dict and should include ',
+            logger.error(f'{__class__.__name__} ({self.name}): the parameter (condition_fn) is a dict and should include ',
                          'only one the two keys \'_fn\' or \'_not_fn\' -> keep only one of these in one item in the specification list')
             raise ValueError('The value of the parameter is invalid') 
         if '_fn' in dict_item:    
@@ -105,7 +104,7 @@ class ConditionalBehaviour(Behaviour):
             fn, inverted = dict_item['_not_fn'], True
             del dict_item['_not_fn']
         else:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): the parameter (condition_fn) is a dict and should include ',
+            logger.error(f'{__class__.__name__} ({self.name}): the parameter (condition_fn) is a dict and should include ',
                          'at least one the two keys \'_fn\' or \'_not_fn\' -> add one of these in one item in the specification list')
             raise ValueError('The value of the parameter is invalid') 
         # ensure the dict_item contains at laeat one key-value pair
@@ -124,14 +123,14 @@ class ConditionalBehaviour(Behaviour):
                 try:
                     result = spec.fn(**(spec.kwargs))
                 except TypeError as e:
-                    rospy.logerr(f'{type(self).__name__} Error in specifying the condition_fn for a behaviour: {e}')
+                    logger.error(f'{type(self).__name__} Error in specifying the condition_fn for a behaviour: {e}')
                     raise
             result = not result if spec.inverted else result
             # print result when first evaluated or result changed
             arguments = ' '.join([str(v) for v in spec.kwargs.values()]) if spec.kwargs is not None else ' '
             if (spec.fn, arguments) not in evaluation_records or evaluation_records[(spec.fn, arguments)] != result:
                 modifier = 'NOT ' if spec.inverted else ''
-                rospy.loginfo(f'{type(self).__name__} ({self.name}) condition "{modifier}{spec.fn.__name__} ({arguments})" changed to: {result}')
+                logger.info(f'{type(self).__name__} ({self.name}) condition "{modifier}{spec.fn.__name__} ({arguments})" changed to: {result}')
                 evaluation_records[(spec.fn, arguments)] = result                
             if not result:
                 return False 
@@ -186,7 +185,7 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
         """
         super(ConditionalCommanderBehaviour, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy)
         if arm_commander is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (arm_commander) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (arm_commander) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         self.arm_commander:GeneralCommander = arm_commander
         self.commander_state = self.arm_commander.get_commander_state()
@@ -204,7 +203,7 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
 
     # A concrete implementation of the initialize function of PyTrees Behaviour
     def initialise(self):
-        # rospy.loginfo(f'ConditionalMoveitBehaviour {self.name} initialize {self.arm_commander.get_commander_state()}')
+        # logger.info(f'ConditionalMoveitBehaviour {self.name} initialize {self.arm_commander.get_commander_state()}')
         self.arm_commander.reset_state()    
                 
     # A concrete implementation of the initialize function of PyTrees Behaviour           
@@ -213,7 +212,7 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
         # handle each state of the General Commander accordingly
         if self.commander_state == GeneralCommanderStates.READY:
             need_to_run_behaviour = self._is_condition_satified()
-            # rospy.loginfo(f'{self.__class__.__name__} condition {self.name}: {need_to_run_behaviour}')
+            # logger.info(f'{self.__class__.__name__} condition {self.name}: {need_to_run_behaviour}')
             if need_to_run_behaviour:
                 return self.update_when_ready()
             elif self.condition_policy is not None:
@@ -230,14 +229,14 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
             self.tidy_up()
             return Status.SUCCESS
         elif self.commander_state == GeneralCommanderStates.ABORTED:
-            rospy.logerr(f'ConditionalCommanderBehaviour handles task aborted')
+            logger.error(f'ConditionalCommanderBehaviour handles task aborted')
             if self.the_blackboard.exists('task'):
                 self.the_blackboard.set('task.state', TaskStates.ABORTED)
                 self.the_blackboard.set('task.commander_feedback', str(self.arm_commander.get_latest_moveit_feedback()))         
             self.tidy_up()
             return Status.FAILURE
         elif self.commander_state == GeneralCommanderStates.ERROR:
-            rospy.logerr(f'ConditionalCommanderBehaviour handles task error')
+            logger.error(f'ConditionalCommanderBehaviour handles task error')
             if self.the_blackboard.exists('task'):
                 self.the_blackboard.set('task.state', TaskStates.FAILED)
                 self.the_blackboard.set('task.commander_feedback', str(self.arm_commander.get_latest_moveit_feedback()))        
@@ -255,13 +254,13 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
         return Status.RUNNING
     # a placeholder function to be overridden in a subclass
     def tidy_up(self):
-        # rospy.loginfo(f'ConditionalCommanderBehaviour tidy_up {self.name} abort move')
+        # logger.info(f'ConditionalCommanderBehaviour tidy_up {self.name} abort move')
         self.arm_commander.abort_move()
     # A concrete implementation of the initialize function of PyTrees Behaviour 
     def terminate(self, new_status):
-        # rospy.loginfo(f'*** ConditionalCommanderBehaviour {self.name}: terminate {new_status} {self.arm_commander.get_commander_state()}')
+        # logger.info(f'*** ConditionalCommanderBehaviour {self.name}: terminate {new_status} {self.arm_commander.get_commander_state()}')
         if self.arm_commander.get_commander_state() == GeneralCommanderStates.BUSY:
-            # rospy.loginfo(f'ConditionalCommanderBehaviour terminate {self.name} abort move')
+            # logger.info(f'ConditionalCommanderBehaviour terminate {self.name} abort move')
             self.arm_commander.abort_move()
 
 class SceneConditionalCommanderBehaviour(ConditionalCommanderBehaviour):
@@ -277,7 +276,7 @@ class SceneConditionalCommanderBehaviour(ConditionalCommanderBehaviour):
         super(SceneConditionalCommanderBehaviour, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                                                  arm_commander=arm_commander, reference_frame=reference_frame)
         if scene is None:
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+            logger.warning(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
         self.the_scene:Scene = scene
 
     def _is_physical_target(self, target) -> bool:
@@ -311,11 +310,11 @@ class SceneConditionalCommanderBehaviour(ConditionalCommanderBehaviour):
                 if logical_lookup_fn is not None:
                     item = logical_lookup_fn(item)    # the function that converts a logical target to a physical target of a scene 
                 else:
-                    rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (scene) is None for processing a logical value {item} -> fix the missing scene parameter at behaviour creation')  
+                    logger.error(f'{__class__.__name__} ({self.name}): parameter (scene) is None for processing a logical value {item} -> fix the missing scene parameter at behaviour creation')  
                     raise AssertionError(f'A parameter should not be None nor missing')     
             # - the item should be a list of three numbers
             if not self._is_physical_target(item):
-                rospy.logerr(f'{__class__.__name__} ({self.name}): invalid item "{item}" in the omposite target -> fix the target specification (or its composition) at behaviour creation')       
+                logger.error(f'{__class__.__name__} ({self.name}): invalid item "{item}" in the omposite target -> fix the target specification (or its composition) at behaviour creation')       
                 raise AssertionError(f'A target position or orientation is wrongly specified')  
             # - merge the item into the placeholder if the corresponding list element is None
             for i, _ in enumerate(physical):
@@ -360,7 +359,7 @@ class HandleTaskFailure(Behaviour):
             # this failure is reported by a behaviour in the tree, should have written the result, and disregard the commander
             the_task.update_state(TaskStates.FAILED) 
 
-        rospy.logerr(f'HandleTaskFailure: {self.the_blackboard.task.state} {self.the_blackboard.task.result} abort move and return FAILURE')
+        logger.error(f'HandleTaskFailure: {self.the_blackboard.task.state} {self.the_blackboard.task.result} abort move and return FAILURE')
         self.arm_commander.abort_move()
         self.the_blackboard.unset('task')
         return Status.FAILURE
@@ -368,7 +367,7 @@ class HandleTaskFailure(Behaviour):
     # A concrete implementation of the initialize function of PyTrees Behaviour
     def terminate(self, new_status):
         pass
-        # rospy.loginfo(f'HandleTaskFailure terminate {self.name} abort move')
+        # logger.info(f'HandleTaskFailure terminate {self.name} abort move')
         # self.arm_commander.abort_move()
 
 # A utility Behaviour that handles task cancelled placed after the EternalGuard (with FailureIsSuccess)
@@ -392,11 +391,11 @@ class HandleTaskCancelled(Behaviour):
         # the invalidation should result in GeneralCommander being ABORTED
         the_task = self.the_blackboard.task
         commander_state = self.arm_commander.get_commander_state()
-        # rospy.loginfo(f'HandleTaskCancelled commander state: {commander_state} task state: {the_task.state}')
+        # logger.info(f'HandleTaskCancelled commander state: {commander_state} task state: {the_task.state}')
         if the_task.state == TaskStates.CANCELLED:
             the_task.state = TaskStates.ABORTED
             the_task.result = 'TASK_CANCELLED_BY_CLIENT'
-            rospy.logerr(f'HandleTaskCancelled: return FAILURE: {the_task.result}')
+            logger.error(f'HandleTaskCancelled: return FAILURE: {the_task.result}')
             self.the_blackboard.unset('task')
             self.stop(Status.FAILURE)
             return Status.FAILURE
@@ -405,7 +404,7 @@ class HandleTaskCancelled(Behaviour):
     
     # A concrete implementation of the initialize function of PyTrees Behaviour
     def terminate(self, new_status):
-        # rospy.loginfo(f'HandleTaskCancelled terminate {self.name} abort move')
+        # logger.info(f'HandleTaskCancelled terminate {self.name} abort move')
         if new_status == Status.FAILURE:
             self.arm_commander.abort_move()
 
@@ -429,10 +428,10 @@ class Print(Behaviour):
         else:
             msg = self.msg
         # output the message
-        rospy.loginfo(f'{self.name}: {msg}')
+        logger.info(f'{self.name}: {msg}')
         # print the ascii representation of the behaviour tree rooted at the parent of this behaviour  
         if self.print_tree:
-            rospy.loginfo(f'{py_trees.display.ascii_tree(self.parent)}')
+            logger.info(f'{py_trees.display.ascii_tree(self.parent)}')
         # this is a tricky part - the behaviour is supposed to be 'transparent' in a sequence of behaviours
         # but the return status has to be SUCCESS if the parent is a Sequence and FAILURE if the parent is a Selector
         if self.parent is not None:
@@ -449,9 +448,9 @@ class PrintPose(Behaviour):
         self.arm_commander:GeneralCommander = arm_commander
     # A concrete implementation of the initialize function of PyTrees Behaviour    
     def update(self):
-        rospy.loginfo(f'- Print the pose of the end-effector and joint values')
-        rospy.loginfo(f'- xyzrpy: {self.arm_commander.pose_in_frame_as_xyzrpy()}')
-        rospy.loginfo(f'- joints: {self.arm_commander.current_joint_positons_as_list()}')
+        logger.info(f'- Print the pose of the end-effector and joint values')
+        logger.info(f'- xyzrpy: {self.arm_commander.pose_in_frame_as_xyzrpy()}')
+        logger.info(f'- joints: {self.arm_commander.current_joint_positons_as_list()}')
         return Status.SUCCESS
 
 # A utility Behaviour used for tracing and debugging. It prints the pose of the end-effector in the reference frames
@@ -476,9 +475,9 @@ class PrintPosesInFrame(PrintPose):
             binded_reference_frame = self.the_scene.list_object_names()
         else:
             binded_reference_frame = [binded_reference_frame]
-        rospy.loginfo(f'- PrintPose of the end-effector')
+        logger.info(f'- PrintPose of the end-effector')
         for frame in binded_reference_frame:
-            rospy.loginfo(f'- {frame}: {self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame=frame)}')
+            logger.info(f'- {frame}: {self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame=frame)}')
         return Status.SUCCESS
 
 class SimAttachObject(ConditionalCommanderBehaviour):
@@ -491,12 +490,12 @@ class SimAttachObject(ConditionalCommanderBehaviour):
         super(SimAttachObject, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                               arm_commander=arm_commander)
         if object_name is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (object_name) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (object_name) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         self.object_name = object_name
         self.post_fn = post_fn
         if self.post_fn is not None and not hasattr(self.post_fn, '__call__'):
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): parameter (post_fn) is not a function -> fix the parameter at behaviour construction')
+            logger.warning(f'{__class__.__name__} ({self.name}): parameter (post_fn) is not a function -> fix the parameter at behaviour construction')
 
     # the concrete implementation of the logic when the General Commander is READY        
     def update_when_ready(self):           
@@ -516,14 +515,14 @@ class SimDetachObject(ConditionalCommanderBehaviour):
         super(SimDetachObject, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                               arm_commander=arm_commander)
         if object_name is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (object_name) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (object_name) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         self.object_name = object_name
         self.the_blackboard.register_key('the_object', access=py_trees.common.Access.WRITE)
         self.to_remove = to_remove
         self.post_fn = post_fn
         if self.post_fn is not None and not hasattr(self.post_fn, '__call__'):
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): parameter (post_fn) is not a function -> fix the parameter at behaviour construction')
+            logger.warning(f'{__class__.__name__} ({self.name}): parameter (post_fn) is not a function -> fix the parameter at behaviour construction')
 
     # the concrete implementation of the logic when the General Commander is READY        
     def update_when_ready(self):       

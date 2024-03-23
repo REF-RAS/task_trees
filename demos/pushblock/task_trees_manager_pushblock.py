@@ -11,16 +11,12 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
+import os, math, random
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
 
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
+from arm_commander.commander_moveit import GeneralCommander, logger
 import arm_commander.moveit_tools as moveit_tools
 
 from task_trees.states import TaskStates
@@ -40,7 +36,7 @@ class MoveNamedPoseTask(BasicTask):
         :type named_pose: str
         """
         if named_pose is None or type(named_pose) is not str or len(named_pose) == 0:
-            rospy.logerr(f'{__class__.__name__}: parameter (named_pose) is not an non-empty string -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__}: parameter (named_pose) is not an non-empty string -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter is invalid')  
         super(MoveNamedPoseTask, self).__init__(named_pose)  
 
@@ -53,7 +49,7 @@ class PushBlockTask(BasicTask):
         """
         super(PushBlockTask, self).__init__(area)
         if not (area is not None or type(area) is not str or not area.startswith('area_')):
-            rospy.logerr(f'{__class__.__name__}: parameter (area) is not a string starts with "area_" -> fix the value at behaviour construction')
+            logger.error(f'{__class__.__name__}: parameter (area) is not a string starts with "area_" -> fix the value at behaviour construction')
             raise AssertionError(f'A parameter is invalid')  
 
 class MoveAreaTask(BasicTask):
@@ -64,7 +60,7 @@ class MoveAreaTask(BasicTask):
         """
         super(MoveAreaTask, self).__init__(area)
         if not (area is not None or type(area) is not str or not area.startswith('area_')):
-            rospy.logerr(f'{__class__.__name__}: parameter (area) is not a string starts with "area_" -> fix the value at behaviour construction')
+            logger.error(f'{__class__.__name__}: parameter (area) is not a string starts with "area_" -> fix the value at behaviour construction')
             raise AssertionError(f'A parameter is invalid')  
         
 # ----------------------------------------
@@ -215,7 +211,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         start_position = self.the_scene.query_config('area.positions.restart')
         current_pose_in_target_frame = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame=target)
         distance = math.dist(start_position[:2], current_pose_in_target_frame[:2])
-        # rospy.loginfo(f'wrong_restart_position: {target} {start_position} {current_pose_in_target_frame} {distance}')
+        # logger.info(f'wrong_restart_position: {target} {start_position} {current_pose_in_target_frame} {distance}')
         return distance > 0.02
     
     def the_object_in_area(self, area) -> bool:
@@ -223,7 +219,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
             if 'area' in self.the_blackboard.the_object:
                 current = self.the_blackboard.the_object['area']
                 return current == area
-        rospy.logwarn(f'the_object_in_area: the blackboard key "the_object" is not defined or it has no "area" key -> should not happen')
+        logger.warning(f'the_object_in_area: the blackboard key "the_object" is not defined or it has no "area" key -> should not happen')
         return False        
     
     def the_object_over_an_object(self, object_name) -> bool:
@@ -236,7 +232,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
         result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
-        # rospy.loginfo(f'at {named_pose} pose: {result}')
+        # logger.info(f'at {named_pose} pose: {result}')
         return result    
         
     # -----------------------------------------------

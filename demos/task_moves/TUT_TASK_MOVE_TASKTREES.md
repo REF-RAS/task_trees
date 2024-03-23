@@ -63,21 +63,21 @@ class TaskDemoApplication():
         self.the_task_manager.display_tree()
         self.to_stop = False
         self._run_demo()
-        rospy.spin()
+        self.the_task_manager.spin()
         
     def stop(self, *args, **kwargs):
-        rospy.loginfo('stop signal received')
+        logger.info('stop signal received')
         self.the_task_manager.shutdown()
         sys.exit(0)
         
     def _run_demo(self):
         task_manager = self.the_task_manager
         the_task = None
-        rospy.loginfo(f'=== Task Demo Started') 
+        logger.info(f'=== Task Demo Started') 
         for i in range(10):
-            rospy.loginfo(f'=== Submit a MoveRectTask #{i + 1}')
-            task_manager.submit_task(the_task:=MoveRectTask(''))
-            the_task.wait_for_completion()  
+            logger.info(f'=== Submit a MoveRectTask #{i + 1}')
+            task_manager.submit_task(the_task:=MoveRectTask())
+            the_task.wait_for_completion()    
 ```
 
 
@@ -126,15 +126,15 @@ class TaskDemoApplication():
     def _run_demo(self):
         task_manager = self.the_task_manager
         the_task = None
-        rospy.loginfo(f'=== Task Demo Started') 
+        logger.info(f'=== Task Demo Started') 
 
-        rospy.loginfo(f'=== Submit a MoveRandomTask (-0.2, 0.2)')
+        logger.info(f'=== Submit a MoveRandomTask (-0.2, 0.2)')
         task_manager.submit_task(the_task:=MoveRandomTask(-0.2, 0.2))
         the_task.wait_for_completion()    
         
-        rospy.loginfo(f'=== Submit a MoveRandomTask (0.1, 0.4)')
+        logger.info(f'=== Submit a MoveRandomTask (0.1, 0.4)')
         task_manager.submit_task(the_task:=MoveRandomTask(0.1, 0.4))
-        the_task.wait_for_completion()         
+        the_task.wait_for_completion()        
 ```
 
 ## Example 3: Interactive Task Execution 
@@ -152,14 +152,14 @@ class TaskDemoApplication():
     def _run_demo(self):
         task_manager = self.the_task_manager
         the_task = None
-        rospy.sleep(5.0)
-        rospy.loginfo(f'=== Task Demo Started') 
+        time.sleep(5.0)
+        logger.info(f'=== Task Demo Started') 
         while True:
             while True:
                 target = input('Submit task MoveRectTask (1), MoveRandomTask (2) or Quit (Q): ')
                 if target in ['1', '2', 'Q']:
                     break
-                rospy.sleep(0.1)
+                time.sleep(0.1)
             if target == 'Q':
                 sys.exit(0)
             elif target == '1':
@@ -187,9 +187,9 @@ class TaskDemoROSServer():
     def __init__(self):
     ...
         # subscribe to a topic for do commands
-        rospy.sleep(3.0) # wait for the task manager to finish initialization
+        time.sleep(3.0) # wait for the task manager to finish initialization
         self.do_topic_sub = rospy.Subscriber('/taskdemo/do', Int8, self._cb_do_received)
-        rospy.loginfo(f'The server is listening on /taskdemo/do')
+        logger.info(f'The server is listening on /taskdemo/do')
         self.the_task:BasicTask = None
     ... 
     # the callback for the ROS topic subscription
@@ -197,17 +197,17 @@ class TaskDemoROSServer():
         target = msg.data
         # check if there is a current incomplete task, and cancel the task 
         if self.the_task is not None and self.the_task.get_state() not in COMPLETION_STATES:
-            rospy.loginfo(f'=== CANCEL the current task')            
+            logger.info(f'=== CANCEL the current task')            
             self.the_task.cancel(wait=True)
         if target == 1:
-            rospy.loginfo(f'=== Submit a MoveRectTask')
+            logger.info(f'=== Submit a MoveRectTask')
             self.the_task_manager.submit_task(the_task:=MoveRectTask())
         elif target == 2:
-            rospy.loginfo(f'=== Submit a MoveRandomTask (-0.3, 0.3)')
+            logger.info(f'=== Submit a MoveRandomTask (-0.3, 0.3)')
             self.the_task_manager.submit_task(the_task:=MoveRandomTask(-0.3, 0.3))
         else:
             self.the_task = None
-            rospy.logwarn(f'TaskDemoROSServer: received unrecognized do command: {target}')
+            logger.warning(f'TaskDemoROSServer: received unrecognized do command: {target}')
             return
         self.the_task = the_task
 ```

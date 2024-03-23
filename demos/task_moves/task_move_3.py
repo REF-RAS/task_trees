@@ -11,20 +11,11 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
+import sys, signal, random, time
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
-import arm_commander.moveit_tools as moveit_tools
-
-from task_trees.states import TaskStates
-from task_trees.behaviours_base import *
+from arm_commander.commander_moveit import GeneralCommander, logger
 from task_trees.behaviours_move import DoMoveXYZRPY, DoMoveDisplaceXYZ, DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 
@@ -69,7 +60,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
     # --- functions for behaviour trees to generate late binding target poses
     def generate_random_dxyz(self) -> list:
         dxyz = [0.0, 0.0, random.uniform(-0.25, -0.35)]
-        rospy.loginfo(f'generate_random_dxyz: {dxyz}')
+        logger.info(f'generate_random_dxyz: {dxyz}')
         return dxyz
     
     
@@ -79,7 +70,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
         min_y = self.the_blackboard.task.min_y
         max_y = self.the_blackboard.task.max_y           
         xyz = [None, random.uniform(min_y, max_y), None]
-        rospy.loginfo(f'generate_random_xyz: {xyz}')
+        logger.info(f'generate_random_xyz: {xyz}')
         return xyz
     
     # -------------------------------------------------
@@ -149,24 +140,24 @@ class TaskDemoApplication():
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # self.the_task_manager.display_tree()
         self._run_demo()
-        rospy.spin()
+        self.the_task_manager.spin()
         
     def stop(self, *args, **kwargs):
-        rospy.loginfo('stop signal received')
+        logger.info('stop signal received')
         self.the_task_manager.shutdown()
         sys.exit(0)
         
     def _run_demo(self):
         task_manager = self.the_task_manager
         the_task = None
-        rospy.sleep(5.0)
-        rospy.loginfo(f'=== Task Demo Started') 
+        time.sleep(5.0)
+        logger.info(f'=== Task Demo Started') 
         while True:
             while True:
                 target = input('Submit task MoveRectTask (1), MoveRandomTask (2) or Quit (Q): ')
                 if target in ['1', '2', 'Q']:
                     break
-                rospy.sleep(0.1)
+                time.sleep(0.1)
             if target == 'Q':
                 sys.exit(0)
             elif target == '1':
@@ -177,13 +168,12 @@ class TaskDemoApplication():
                 the_task.wait_for_completion() 
 
 if __name__=='__main__':
-    rospy.init_node('simple_task_demo', anonymous=False)
+    # rospy.init_node('simple_task_demo', anonymous=False)
     try:
         TaskDemoApplication()
-        rospy.loginfo('simple_task_demo is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+        logger.info('simple_task_demo is running')
+    except Exception as e:
+        logger.exception(e)
       
 
 

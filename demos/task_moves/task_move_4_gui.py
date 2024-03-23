@@ -11,11 +11,11 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import threading, time, signal
+import time, signal
 from graphics import *
-
 import rospy
 from std_msgs.msg import Int8
+from task_trees.tools import logger
 
 # Require the python Tkinter module
 # sudo apt install python3-tk
@@ -45,7 +45,7 @@ class TaskDemoGUI():
         
     # The callback for receiving SIGINT interrupt signal
     def stop(self, *args, **kwargs):
-        rospy.loginfo('stop signal received')
+        logger.info('stop signal received')
         self.to_stop = True
         self.win.close()
         sys.exit(0)
@@ -73,7 +73,6 @@ if __name__== '__main__':
     rospy.init_node('task_submit_gui', anonymous=False)
     try:
         the_estop = TaskDemoGUI()
-        rospy.loginfo('task_submit_gui is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+        logger.info('task_submit_gui is running')
+    except Exception as e:
+        logger.exception(e)

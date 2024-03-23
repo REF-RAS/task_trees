@@ -9,17 +9,12 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import numbers
-import rospy
-from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 from std_msgs.msg import Float32
 from geometry_msgs.msg import Pose, PoseStamped
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander, GeneralCommanderStates
 from task_trees.behaviours_base import ConditionalBehaviour, SceneConditionalCommanderBehaviour, PrintPose
-import arm_commander.moveit_tools as moveit_tools
-from task_trees.task_scene import Scene
+from task_trees.tools import logger
 
 # ----------------------------------------------------------------------
 # Move Behaviour Classes for robot arm manipulation applications
@@ -35,7 +30,7 @@ class DoMoveNamedPose(SceneConditionalCommanderBehaviour):
         super(DoMoveNamedPose, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                               arm_commander=arm_commander, scene=scene)
         if named_pose is None or scene is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (named_pose or scene) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (named_pose or scene) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')
         self.the_scene = scene
         self.named_pose = named_pose
@@ -48,11 +43,11 @@ class DoMoveNamedPose(SceneConditionalCommanderBehaviour):
         the_scene = self.the_scene
         # validate the named_pose
         if named_pose is None or type(named_pose) != str or not the_scene.exists_config(named_pose):
-            rospy.logerr(f'DoMoveNamedPose ({self.name}): invalid named pose "{named_pose}" parameter')
+            logger.error(f'DoMoveNamedPose ({self.name}): invalid named pose "{named_pose}" parameter')
             return Status.FAILURE
         # send the command to the General Commander in an asynchronous manner
         self.arm_commander.move_to_named_pose(named_pose, wait=False)
-        rospy.loginfo(f'DoMoveNamedPose ({self.name}): started move to named pose: {named_pose}')         
+        logger.info(f'DoMoveNamedPose ({self.name}): started move to named pose: {named_pose}')         
         return Status.RUNNING
 
 class DoMovePose(SceneConditionalCommanderBehaviour):
@@ -71,10 +66,10 @@ class DoMovePose(SceneConditionalCommanderBehaviour):
         super(DoMovePose, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                          arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_pose is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_pose) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_pose) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         if not hasattr(target_pose, '__call__') and type(target_pose) not in [Pose, PoseStamped, list, tuple]:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_pose) is not of an acceptable type -> use Pose, PoseStamped, 6-list or 7-list at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_pose) is not of an acceptable type -> use Pose, PoseStamped, 6-list or 7-list at behaviour construction')
             raise AssertionError(f'The paramete (target_pose) should be of the acceptable type')  
         self.target_pose = target_pose
         
@@ -87,7 +82,7 @@ class DoMovePose(SceneConditionalCommanderBehaviour):
         else:
             binded_target_pose = self.target_pose
         self.arm_commander.move_to_pose(binded_target_pose, binded_reference_frame, wait=False)
-        rospy.loginfo(f'DoMovePose ({self.name}): started move to pose: {binded_target_pose} in reference frame "{binded_reference_frame}"')   
+        logger.info(f'DoMovePose ({self.name}): started move to pose: {binded_target_pose} in reference frame "{binded_reference_frame}"')   
         return Status.RUNNING
     
     # the concrete implementation of the logic when the command is completed    
@@ -112,10 +107,10 @@ class DoMoveXYZ(SceneConditionalCommanderBehaviour):
         super(DoMoveXYZ, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                         arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_xyz is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_xyz) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_xyz) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')
         if scene is None:
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+            logger.warning(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
         self.target_xyz = target_xyz
         self.cartesian = cartesian
         self.constraint_fn = constraint_fn
@@ -128,14 +123,14 @@ class DoMoveXYZ(SceneConditionalCommanderBehaviour):
         else:
             xyz = self.compute_physical_target(self.target_xyz, self.the_scene.query_config) 
         if self.target_xyz is None or xyz is None:
-            rospy.logerr(f'DoMoveXYZ ({self.name}): invalid position xyz parameter {xyz}')
+            logger.error(f'DoMoveXYZ ({self.name}): invalid position xyz parameter {xyz}')
             return Status.FAILURE 
         # add constraint returned by constraint_fn is given
         if self.constraint_fn is not None and hasattr(self.constraint_fn, '__call__'):
             self.arm_commander.add_path_constraints(self.constraint_fn())
         # send command
         binded_reference_frame = self._bind_reference_frame(self.reference_frame)
-        rospy.loginfo(f'DoMoveXYZ ({self.name}): started move to pose: {xyz} in reference frame "{binded_reference_frame}"')         
+        logger.info(f'DoMoveXYZ ({self.name}): started move to pose: {xyz} in reference frame "{binded_reference_frame}"')         
         self.arm_commander.move_to_position(x=xyz[0], y=xyz[1], z=xyz[2], cartesian=self.cartesian, reference_frame=binded_reference_frame, wait=False)
         return Status.RUNNING
     
@@ -161,10 +156,10 @@ class DoMoveXYZRPY(SceneConditionalCommanderBehaviour):
         super(DoMoveXYZRPY, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                            arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_xyz is None or target_rpy is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_xyz or target_rpy) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_xyz or target_rpy) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')     
         if scene is None:
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+            logger.warning(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
         self.target_xyz = target_xyz
         self.target_rpy = target_rpy
         self.constraint_fn = constraint_fn
@@ -174,7 +169,7 @@ class DoMoveXYZRPY(SceneConditionalCommanderBehaviour):
         # evaluate physical target xyz
         binded_reference_frame = self._bind_reference_frame(self.reference_frame)
         current_xyz = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame=binded_reference_frame)
-        # rospy.loginfo(f'DoMoveXYZRPY current pose: {current_xyz} of {binded_reference_frame}')
+        # logger.info(f'DoMoveXYZRPY current pose: {current_xyz} of {binded_reference_frame}')
         if self.the_scene is None:
             xyz = self.compute_physical_target(self.target_xyz, None, default_target=current_xyz[:3])  
             rpy = self.compute_physical_target(self.target_rpy, None, default_target=current_xyz[3:])            
@@ -182,16 +177,16 @@ class DoMoveXYZRPY(SceneConditionalCommanderBehaviour):
             xyz = self.compute_physical_target(self.target_xyz, self.the_scene.query_position_as_xyz, default_target=current_xyz[:3])  
             rpy = self.compute_physical_target(self.target_rpy, self.the_scene.query_rotation_as_rpy, default_target=current_xyz[3:]) 
         if xyz is None:
-            rospy.logerr(f'DoMoveXYZRPY ({self.name}): invalid position xyz parameter {xyz}')
+            logger.error(f'DoMoveXYZRPY ({self.name}): invalid position xyz parameter {xyz}')
             return Status.FAILURE 
         if rpy is None:
-            rospy.logerr(f'DoMoveXYZRPY ({self.name}): invalid position rpy parameter {rpy}')
+            logger.error(f'DoMoveXYZRPY ({self.name}): invalid position rpy parameter {rpy}')
             return Status.FAILURE         
         target_pose = xyz + rpy
         # add constraint returned by constraint_fn is given
         if self.constraint_fn is not None and hasattr(self.constraint_fn, '__call__'):
             self.arm_commander.add_path_constraints(self.constraint_fn())
-        rospy.loginfo(f'DoMoveXYZRPY ({self.name}): started move to pose: {target_pose} in reference frame "{binded_reference_frame}"')   
+        logger.info(f'DoMoveXYZRPY ({self.name}): started move to pose: {target_pose} in reference frame "{binded_reference_frame}"')   
         self.arm_commander.move_to_pose(target_pose, reference_frame=binded_reference_frame, wait=False)
         return Status.RUNNING
     
@@ -217,10 +212,10 @@ class DoMoveDisplaceXYZ(SceneConditionalCommanderBehaviour):
         super(DoMoveDisplaceXYZ, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                                 arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if dxyz is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (dxyz) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (dxyz) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')
         if scene is None:
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+            logger.warning(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
         self.dxyz = dxyz
         self.reference_frame = reference_frame
         
@@ -232,7 +227,7 @@ class DoMoveDisplaceXYZ(SceneConditionalCommanderBehaviour):
         else:
             dxyz = self.compute_physical_target(self.dxyz, self.the_scene.query_config) 
         if self.dxyz is None or dxyz is None:
-            rospy.logerr(f'DoMoveDisplaceXYZ ({self.name}): invalid position dxyz parameter {dxyz}')
+            logger.error(f'DoMoveDisplaceXYZ ({self.name}): invalid position dxyz parameter {dxyz}')
             return Status.FAILURE
         # compute the target pose
         binded_reference_frame = self._bind_reference_frame(self.reference_frame)
@@ -241,7 +236,7 @@ class DoMoveDisplaceXYZ(SceneConditionalCommanderBehaviour):
         xyzrpy[1] += 0 if dxyz[1] is None else dxyz[1]
         xyzrpy[2] += 0 if dxyz[2] is None else dxyz[2]        
         # send command
-        rospy.loginfo(f'DoMoveDisplaceXYZ ({self.name}): started move to pose: {dxyz} in reference frame "{binded_reference_frame}"')         
+        logger.info(f'DoMoveDisplaceXYZ ({self.name}): started move to pose: {dxyz} in reference frame "{binded_reference_frame}"')         
         self.arm_commander.move_to_position(x=xyzrpy[0], y=xyzrpy[1], z=xyzrpy[2], cartesian=True, reference_frame=binded_reference_frame, wait=False)
         return Status.RUNNING
     
@@ -262,10 +257,10 @@ class DoRotate(SceneConditionalCommanderBehaviour):
         super(DoRotate, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                        arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_rpy is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_rpy) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_rpy) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         if scene is None:
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour') 
+            logger.warning(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour') 
         self.target_rpy = target_rpy
     # the concrete implementation of the logic when the General Commander is READY 
     def update_when_ready(self):
@@ -276,11 +271,11 @@ class DoRotate(SceneConditionalCommanderBehaviour):
             target_rpy = self.compute_physical_target(self.target_rpy, self.the_scene.query_rotation_as_rpy)
 
         if self.target_rpy is None or target_rpy is None:
-            rospy.logerr(f'DoRotate ({self.name}): invalid target_rpy parameter {self.target_rpy}')
+            logger.error(f'DoRotate ({self.name}): invalid target_rpy parameter {self.target_rpy}')
             return Status.FAILURE 
         # send the command to the General Commander in an asynchronous manner  
         binded_reference_frame = self._bind_reference_frame(self.reference_frame)
-        rospy.loginfo(f'DoRotate ({self.name}): started rotate to orientation: {target_rpy} in reference frame "{binded_reference_frame}"')          
+        logger.info(f'DoRotate ({self.name}): started rotate to orientation: {target_rpy} in reference frame "{binded_reference_frame}"')          
         self.arm_commander.rotate_to_orientation(roll=target_rpy[0], pitch=target_rpy[1], yaw=target_rpy[2], reference_frame=binded_reference_frame, wait=False)
         return Status.RUNNING
     # the concrete implementation of the logic when the command is completed    
@@ -304,10 +299,10 @@ class DoMoveMultiPose(SceneConditionalCommanderBehaviour):
         super(DoMoveMultiPose, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                          arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_poses is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_poses) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_poses) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 
         if not hasattr(target_poses, '__call__') and type(target_poses) not in [list, tuple]:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_poses) is not of an acceptable type -> make sure a function or a list of poses used at construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_poses) is not of an acceptable type -> make sure a function or a list of poses used at construction')
             raise AssertionError(f'The parameter (target_poses) should be of the acceptable type')  
         self.target_poses = target_poses
         
@@ -320,7 +315,7 @@ class DoMoveMultiPose(SceneConditionalCommanderBehaviour):
         else:
             binded_target_poses = self.target_poses
         self.arm_commander.move_to_multi_poses(binded_target_poses, binded_reference_frame, wait=False)
-        rospy.loginfo(f'DoMoveMultiPose ({self.name}): started move to mutli-poses: {binded_target_poses} in reference frame "{binded_reference_frame}"')   
+        logger.info(f'DoMoveMultiPose ({self.name}): started move to mutli-poses: {binded_target_poses} in reference frame "{binded_reference_frame}"')   
         return Status.RUNNING
 
 
@@ -341,13 +336,13 @@ class DoMoveMultiXYZ(SceneConditionalCommanderBehaviour):
         super(DoMoveMultiXYZ, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
                                         arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
         if target_xyz_list is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_xyz_list) is None -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_xyz_list) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')
         if type(target_xyz_list) not in [list, tuple]:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (target_xyz_list) is not a list nor tuple -> fix the value at behaviour construction')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_xyz_list) is not a list nor tuple -> fix the value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing')        
         if scene is None:
-            rospy.logwarn(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
+            logger.warning(f'{__class__.__name__} ({self.name}): no scene model is provided -> acceptable if logical pose is not involved in this behaviour')
         self.target_xyz_list = target_xyz_list
         
     # the concrete implementation of the logic when the General Commander is READY        
@@ -360,12 +355,12 @@ class DoMoveMultiXYZ(SceneConditionalCommanderBehaviour):
             else:
                 xyz = self.compute_physical_target(target_xyz, self.the_scene.query_config) 
             if self.target_xyz_list is None or xyz is None:
-                rospy.logerr(f'DoMoveXYZ ({self.name}): invalid position xyz parameter {xyz}')
+                logger.error(f'DoMoveXYZ ({self.name}): invalid position xyz parameter {xyz}')
                 return Status.FAILURE 
             binded_xyz_list.append(xyz)
         # send command
         binded_reference_frame = self._bind_reference_frame(self.reference_frame)
-        rospy.loginfo(f'DoMoveMultiXYZ ({self.name}): started move to multi poses: {binded_xyz_list} in reference frame "{binded_reference_frame}"')         
+        logger.info(f'DoMoveMultiXYZ ({self.name}): started move to multi poses: {binded_xyz_list} in reference frame "{binded_reference_frame}"')         
         self.arm_commander.move_to_multi_positions(xyz_list=binded_xyz_list, reference_frame=binded_reference_frame, wait=False)
         return Status.RUNNING
     

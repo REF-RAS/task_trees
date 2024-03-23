@@ -11,19 +11,13 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
+import operator, os, random
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
+from arm_commander.commander_moveit import GeneralCommander, logger
 import arm_commander.moveit_tools as moveit_tools
 
-from task_trees.states import TaskStates
 from task_trees.behaviours_base import SimAttachObject, SimDetachObject
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
@@ -50,7 +44,7 @@ class MoveNamedPoseTask(BasicTask):
         :type named_pose: str
         """
         if named_pose is None or type(named_pose) is not str or len(named_pose) == 0:
-            rospy.logerr(f'{__class__.__name__}: parameter (named_pose) is not an non-empty string -> fix the missing value at behaviour construction')
+            logger.error(f'{__class__.__name__}: parameter (named_pose) is not an non-empty string -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter is invalid')  
         super(MoveNamedPoseTask, self).__init__(named_pose)        
 
@@ -142,13 +136,13 @@ class PNDTaskTreesManager(TaskTreesManager):
     # the position of the target to the blackboard key 'seen_object'
     def simulate_camera(self):
         xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
-        # rospy.loginfo(f'arm: {xyzrpy[:2]} ball: {self.the_ball["xyz_world"][:2]}')
+        # logger.info(f'arm: {xyzrpy[:2]} ball: {self.the_ball["xyz_world"][:2]}')
         if self.the_ball is None:
             self.the_blackboard.unset('seen_object')
             return
-        # rospy.loginfo(f'{abs(xyzrpy[0] - self.the_ball["xyz_world"][0])} {abs(xyzrpy[1] - self.the_ball["xyz_world"][1])}')
+        # logger.info(f'{abs(xyzrpy[0] - self.the_ball["xyz_world"][0])} {abs(xyzrpy[1] - self.the_ball["xyz_world"][1])}')
         if (abs(xyzrpy[0] - self.the_ball['xyz_world'][0]) <= 0.05) and (abs(xyzrpy[1] - self.the_ball['xyz_world'][1]) <= 0.10):
-            rospy.loginfo(f'simulate_camera: found object at {self.the_ball["xyz_world"]}')
+            logger.info(f'simulate_camera: found object at {self.the_ball["xyz_world"]}')
             self.the_blackboard.seen_object = self.the_ball['xyz_world']
         else:
             self.the_blackboard.unset('seen_object')
@@ -207,7 +201,7 @@ class PNDTaskTreesManager(TaskTreesManager):
     # --------------------------------------
     # -- internal functions: conditions functions for behaviours for the building of the behaviour tree for this TaskManager
     def task_is_timeout(self, duration=30):
-        # rospy.loginfo(f'task_timeout: {self.get_time_since_submit()} > {duration}')
+        # logger.info(f'task_timeout: {self.get_time_since_submit()} > {duration}')
         return self._get_time_since_submit() > duration
 
     def in_a_region(self, logical_region) -> bool:
@@ -225,7 +219,7 @@ class PNDTaskTreesManager(TaskTreesManager):
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
         result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
-        # rospy.loginfo(f'at {named_pose} pose: {result}')
+        # logger.info(f'at {named_pose} pose: {result}')
         return result    
     
     # -------------------------------------------------

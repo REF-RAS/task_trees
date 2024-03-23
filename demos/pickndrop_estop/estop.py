@@ -11,9 +11,8 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import threading, time, signal
+import time, signal
 from graphics import *
-
 import rospy
 from std_msgs.msg import Bool
 

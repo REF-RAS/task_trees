@@ -11,21 +11,11 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading, random
-from math import isclose
-import rospy
-import py_trees
+import random
 from py_trees.composites import Sequence, Parallel, Composite, Selector
-from py_trees.trees import BehaviourTree
-
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander
-import arm_commander.moveit_tools as moveit_tools
-
-from task_trees.states import TaskStates
-from task_trees.behaviours_base import *
-from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate
+from arm_commander.commander_moveit import GeneralCommander, logger
+from task_trees.behaviours_move import DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager
 
 # ---------------------------------------
@@ -58,7 +48,7 @@ class SimpleMoveTaskManager(TaskTreesManager):
     # --- functions for behaviour trees to generate late binding target poses    
     def generate_random_xyz(self) -> list:
         xyz = [random.uniform(0.1, 0.5), random.uniform(-0.3, 0.3), random.uniform(0.2, 0.6)]
-        rospy.loginfo(f'generate_random_xyz: {xyz}')
+        logger.info(f'generate_random_xyz: {xyz}')
         return xyz
 
     # -------------------------------------------------
@@ -70,7 +60,7 @@ class SimpleMoveTaskManager(TaskTreesManager):
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
-        move_branch = py_trees.composites.Sequence(
+        move_branch = Sequence(
                 'move_branch',
                 memory=True,
                 children=[
@@ -80,17 +70,16 @@ class SimpleMoveTaskManager(TaskTreesManager):
         return move_branch
     
 if __name__=='__main__':
-    rospy.init_node('simple_move_example', anonymous=False)
+    # rospy.init_node('simple_move_example', anonymous=False)
     try:
         arm_commander = GeneralCommander('panda_arm')
         the_task_manager = SimpleMoveTaskManager(arm_commander)
         # display the behaviour tree as an image
         # the_task_manager.display_tree(target_directory=os.path.dirname(__file__))
-    
-        rospy.loginfo('simple_move_example is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+        logger.info('simple_move_example is running')
+        the_task_manager.spin()
+    except Exception as e:
+        logger.exception(e)
       
 
 

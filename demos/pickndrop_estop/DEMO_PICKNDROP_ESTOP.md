@@ -58,32 +58,32 @@ Replace the first coding snippet in `demo.py` with the second (revised version).
 The original version.
 ```
             elif state == DemoStates.STOP:
-                rospy.loginfo(f'=== PickNDrop STOP')   
+                logger.info(f'=== PickNDrop STOP')   
                 if the_task is not None and the_task.get_state() == TaskStates.GUARD_ABORTED:
-                    rospy.logwarn(f'Aborted by the EStop -> reset the task manager is needed') 
-                return   
+                    logger.warning(f'Aborted by the EStop -> unable to resume because there is no built-in recovery') 
+                return  
 ```
 The revised version.
 ```
             elif state == DemoStates.STOP:
-                rospy.loginfo(f'=== PickNDrop STOP')   
+                logger.info(f'=== PickNDrop STOP')   
                 if the_task is not None and the_task.get_state() == TaskStates.GUARD_ABORTED:
-                    rospy.logwarn(f'Aborted by the EStop -> reset the task manager is needed') 
+                    logger.warning(f'Aborted by the EStop -> waiting for the reset of the task manager') 
 
-                time.sleep(10.0)
+                time.sleep(3.0) # wait for a few seconds to simulate the recovery
 
-                rospy.loginfo(f'Attempt to recover -> release the E-Stop button')       
+                logger.warning(f'Attempt to recover -> release the E-Stop button')       
                 while True:
                     if self.estop_status == False:
                         break
                     time.sleep(1.0)
-                rospy.loginfo(f'Reset the guard of the task manager') 
+                logger.info(f'Reset the guard of the task manager') 
                 self.the_task_manager.reset_guard()
                 if self.the_blackboard.attached_object:
                     task_manager.submit_task(the_task := DropObjectTask())                    
                     state = DemoStates.DROP
                 else:                   
-                    state = DemoStates.INIT  
+                    state = DemoStates.INIT      
 ```
 
 Tbe file `demo_recovery.py` contains this version of the STOP state handling. The while loop traps the execution until the EStop button is released. The guard of the task manager is then reset before going either to the DROP state (if an object is attached) or the INIT state (start over again).

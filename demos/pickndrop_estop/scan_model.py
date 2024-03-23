@@ -81,7 +81,6 @@ class SteppingScanModel(ScanRegionModel):
                 break
             self.scanseq.append(StepInfo(ix, iy, [x, y]))
             self.scangrid[ix, iy] = self.scanseq[-1]
-            # rospy.loginfo(f'ScanRegionModel: {ix} {iy} {self.scanseq[-1].xy}')
             ix += 1
             x += step_size[0]
         # initialize the progress

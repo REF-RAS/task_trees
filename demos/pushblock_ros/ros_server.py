@@ -12,14 +12,12 @@ __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
 # general modules
-import os, json, random, signal, copy, glob, collections, sys, threading
+import signal, sys, threading, time
 import rospy, actionlib
-from std_msgs.msg import Int8
-import py_trees
+from arm_commander.commander_moveit import GeneralCommander, logger
 from task_trees.msg import TaskAction, TaskGoal, TaskResult
-from arm_commander.commander_moveit import GeneralCommander
 from task_trees.states import COMPLETION_STATES
-from task_trees_manager_pushblock import *
+from demos.pushblock.task_trees_manager_pushblock import *
 
 class PushBlockROSServer():
     """ The server side of the application program for the PushBlock Demo that implements the behaviour tree
@@ -47,16 +45,16 @@ class PushBlockROSServer():
         
     # -- callback function for shutdown
     def cb_shutdown(self):
-        rospy.loginfo('the ros node is being shutdown')
+        logger.info('the ros node is being shutdown')
         sys.exit(0)
 
     def stop(self, *args, **kwargs):
-        rospy.loginfo('the ros node is being stopped')
+        logger.info('the ros node is being stopped')
         sys.exit(0)
 
     # -- callback for receiving the goal of action
     def received_goal(self, goal):
-        rospy.loginfo(f'goal received: {goal.target}')
+        logger.info(f'goal received: {goal.target}')
         result = TaskResult()
         self.task_lock.acquire()
         try:
@@ -70,13 +68,13 @@ class PushBlockROSServer():
                 self.the_action_server.set_aborted(result) 
                 return
             self.task = task
-            t = rospy.Time.now()
+            t = time.time()
             while self.task is not None:
-                rospy.sleep(0.1)
+                time.sleep(0.1)
                 if self.task.get_state() in COMPLETION_STATES:
                     break
-                if rospy.Time.now() - t > rospy.Duration(self.TIMEOUT):
-                    rospy.logerr(f"ros_server: the task is cancelled due to timeout ({self.TIMEOUT} s)")
+                if time.time() - t > self.TIMEOUT:
+                    logger.error(f"ros_server: the task is cancelled due to timeout ({self.TIMEOUT} s)")
                     result.data = 'TIMEOUT'
                     self.task.cancel()
                     self.the_action_server.set_aborted(result)
@@ -102,7 +100,7 @@ class PushBlockROSServer():
     def received_preemption(self):
         self.task_lock.acquire()
         try:
-            rospy.loginfo(f'preemption received')
+            logger.info(f'preemption received')
             if self.task is not None:
                 self.task.cancel()
         finally:
@@ -115,7 +113,6 @@ if __name__ == '__main__':
     rospy.init_node('pushblock_server', anonymous=False)
     try:
         the_action_server = PushBlockROSServer()
-        rospy.loginfo('Pushblock ROS server (pushblock_server) is running')
-        rospy.spin()
-    except rospy.ROSInterruptException as e:
-        rospy.logerr(e)
+        logger.info('Pushblock ROS server (pushblock_server) is running')
+    except Exception as e:
+        logger.exception(e)

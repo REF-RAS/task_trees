@@ -9,10 +9,7 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import copy, numbers
 from collections import namedtuple, defaultdict
-
-import rospy
 from task_trees.task_scene import Scene
 
 # namedtuples for internal data structure for higher readability

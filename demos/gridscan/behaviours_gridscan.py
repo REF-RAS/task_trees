@@ -9,18 +9,14 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-from time import sleep
-import operator, yaml, os, math, random, copy, sys, signal, threading
-import rospy
 import py_trees
 from py_trees.behaviour import Behaviour
 from py_trees.common import Status
 
 # robot control module
-from arm_commander.commander_moveit import GeneralCommander, GeneralCommanderStates
-from task_trees.behaviours_base import ConditionalBehaviour, ConditionalCommanderBehaviour
 from task_trees.behaviours_move import SceneConditionalCommanderBehaviour
 from task_scene_gridscan import GridScanScene
+from task_trees.tools import logger
 
 # ----------------------------------------------------------------------
 # Custom Behaviour Classes
@@ -39,19 +35,19 @@ class SimCalibrate(Behaviour):
         """
         super(SimCalibrate, self).__init__(name)
         if arm_commander is None or scene is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (arm_commander or scene) is None -> fix the missing value')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (arm_commander or scene) is None -> fix the missing value')
             raise AssertionError(f'A parameter should not be None nor missing')
         # define the three key-value pairs used by this behaviour
         self.the_blackboard = py_trees.blackboard.Client()
         self.the_blackboard.register_key(key='task', access=py_trees.common.Access.READ)
         self.the_blackboard.register_key(key='tank', access=py_trees.common.Access.WRITE)        
         # attach robot agent
-        self.arm_commander:GeneralCommander = arm_commander
+        self.arm_commander = arm_commander
         self.the_scene = scene
 
     # the concrete implementation that contains the logic of the simulated calibration
     def update(self):
-        rospy.loginfo(f'SimCalibrate: found tank at pose: ')  
+        logger.info(f'SimCalibrate: found tank at pose: ')  
         # setup objects
         for object_name in self.the_scene.list_object_names():
             the_object = self.the_scene.get_object_config(object_name)
@@ -79,7 +75,7 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
         super(DoMoveTankGrid, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, arm_commander=arm_commander, scene=scene, 
                                              reference_frame='the_tank')
         if grid_position is None:
-            rospy.logerr(f'{__class__.__name__} ({self.name}): parameter (physical_xyz) is None -> fix the missing value')
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (physical_xyz) is None -> fix the missing value')
             raise AssertionError(f'A parameter should not be None nor missing')
         self.grid_position = grid_position
         self.the_scene:GridScanScene = scene
@@ -91,14 +87,14 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
         # evaluate physical target xyz
         xyz = self.compute_physical_target(self.grid_position, self.the_scene.query_position_as_xyz)  
         if self.grid_position is None or xyz is None:
-            rospy.logerr(f'DoMoveTankGrid ({self.name}): invalid position xyz parameter {xyz}')
+            logger.error(f'DoMoveTankGrid ({self.name}): invalid position xyz parameter {xyz}')
             return Status.FAILURE 
         # add constraint returned by constraint_fn is given
         if self.constraint_fn is not None and hasattr(self.constraint_fn, '__call__'):
             self.arm_commander.add_path_constraints(self.constraint_fn())
         # send commands  
         self.arm_commander.move_to_position(x=xyz[0], y=xyz[1], z=xyz[2], cartesian=self.cartesian, reference_frame=self.reference_frame, wait=False)
-        rospy.loginfo(f'DoMoveTankGrid ({self.name}): started move to pose: {xyz} in reference frame "{self.reference_frame}"')   
+        logger.info(f'DoMoveTankGrid ({self.name}): started move to pose: {xyz} in reference frame "{self.reference_frame}"')   
         return Status.RUNNING
     # the concrete implementation of the logic when the command is completed    
     def tidy_up(self):

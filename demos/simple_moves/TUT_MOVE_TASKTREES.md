@@ -85,7 +85,7 @@ The function `self.generate_random_xyz` is listed below. It returns a xyz list w
 ```
     def generate_random_xyz(self) -> list:
         xyz = [random.uniform(0.1, 0.5), random.uniform(-0.3, 0.3), random.uniform(0.2, 0.6)]
-        rospy.loginfo(f'generate_random_xyz: {xyz}')
+        logger.info(f'generate_random_xyz: {xyz}')
         return xyz
 ```
 ![Simple Move 3](../pytrees_moves/docs/TutorialSimpleMove3.gif)
@@ -208,7 +208,7 @@ The function `self.generate_random_move` is listed below. It obtains the current
             xyzrpy[which_dim] += random.uniform(-0.2, 0.2)   # the x, y, or z component
         elif which_dim == 3:
             xyzrpy[5] += random.uniform(-1.57, 1.57)         # the yaw component
-        rospy.loginfo(f'generate_random_move: {xyzrpy}')
+        logger.info(f'generate_random_move: {xyzrpy}')
         return xyzrpy
 ```
 
@@ -267,7 +267,7 @@ The second behaviour specifies the function `generate_scan_movement` as the targ
             xyzrpy = xyzrpy.copy()
             xyzrpy[s[0]] += s[1]
             target_poses.append(xyzrpy)
-        rospy.loginfo(f'generate_scan_movement: {xyzrpy}')
+        logger.info(f'generate_scan_movement: {xyzrpy}')
         return target_poses
 ```
 The last behaviour specifies the function `generate_random_rotations` as the target poses. 
@@ -280,7 +280,7 @@ The last behaviour specifies the function `generate_random_rotations` as the tar
             xyzrpy = xyzrpy.copy()
             xyzrpy[5] += random.uniform(-1.57, 1.57)
             target_poses.append(xyzrpy)
-        rospy.loginfo(f'generate_random_rotations: {xyzrpy}')
+        logger.info(f'generate_random_rotations: {xyzrpy}')
         return target_poses
 ```
 
