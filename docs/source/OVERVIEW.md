@@ -1,12 +1,18 @@
-# Task Trees: SDK for Rapid Robot Arm Manipulation Application Development 
+# An Overview
 
-The **Task Trees** is a SDK designed to accelerate the development of behaviour-tree based robot arm manipulation applications. It is part of the model architecture for guiding the design of reusable and extensible robot arm manipulation applications.  The architecture also includes the **Arm Commander** [Github Repo](https://github.com/REF-RAS/arm_commander) as the interface to the underlying arm manipulation platform. 
+The **Task Trees** is a behaviour tree based SDK designed for accelerating the development of robot manipulator applications. It is based on the **Arm Commander** ([Github Repo](https://github.com/REF-RAS/arm_commander)) as the interface to the underlying arm manipulation platform. These two packages are the major components of the model architecture for guiding the design of reusable and extensible robot manipulator applications.
 
-## Overview of the Task Tree Architecture 
+## Overview of the Task Trees SDK 
 
-The following figure shows the structure robot arm manipulation applications based on the task trees framework and the arm commander. The left-hand-side one represents a standalone application and the right-hand-side one simply has a ROS layer that separates the application logic from the task-level behaviour tree implementation.
+The Task Tree SDK aims to address the challenges in the modelling high level tasks as actionable, reactive, and reusable plans of robotic motions. 
 
-![Application Architecture](./docs/assets/TaskTrees1.png)
+Applications based on the task trees SDK share the same architecture and 
+
+A robot arm manipulation applications 
+
+The structure of robot arm manipulation applications based on the task trees framework and the arm commander. The left-hand-side one represents a standalone application and the right-hand-side one simply has a ROS layer that separates the application logic from the task-level behaviour tree implementation.
+
+![Application Architecture](../assets/TaskTrees1.png)
 
 Designing and implementation arm manipulation tasks is challenging because such a task spans across low-level arm movement planning (i.e. collision avoidance), scene management (specification of collision objects), semantic-level action planning and execution, exception handling, and interfacing with application logic. 
 
@@ -25,9 +31,9 @@ Refer to the [Installation Guide](INSTALL.md).
 
 ## Example: the Push-Block Demo
 
-The [Push-Block Demo Program](demos/pushblock/DEMO_PUSHBLOCK.md) simulates a robot arm moving a block between 4 side channels on an elevated surface. 
+The [Push-Block Demo Program](DEMO_PUSHBLOCK.md) simulates a robot arm moving a block between 4 side channels on an elevated surface. 
 
-![Push-Block Animation](./demos/pushblock/docs/DemoPushBlock1.gif)
+![Push-Block Animation](../../demos/pushblock/docs/DemoPushBlock1.gif)
 
 Moving the block from the current location to one of the three other channels is considered as one task, though there are totally six start-end combinations and also the possibility of the block left in the centre. Check out the implementation to find out how structured and concise it is of the demo program. Essentially, the Task Trees SDK supports the following features in the demo program that significantly accelerate the development. 
 - Using the pre-built move behaviour classes of the extension package instead of coding the robot manipulation in custom behaviour classes.
@@ -40,7 +46,7 @@ Moving the block from the current location to one of the three other channels is
 
 This package includes many demo programs and examples for illustrating the capability of the SDK and how to program behaviour trees with the programming resources of the SDK. 
 
-- Go to the [Demo Program and Programming Tutorial Catalogue](demos/DEMO_PROGRAMS.md)
+- Go to the [Demo Program and Programming Tutorial Catalogue](../../demos/DEMO_PROGRAMS.md)
 
 ## Author
 

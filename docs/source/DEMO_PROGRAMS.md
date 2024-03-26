@@ -37,18 +37,18 @@ The following demo programs based on the task tree manager class `TaskTreesManag
 
 The gridscan application simulates the operation of an end-effector working over a grid surface inside a shallow tank. The end-effector moves between grid cells inside the tank according to a program and moves back to a home pose. During the operation, the end-effector changes the orientation while moving to different parts ot the tank.
 
-Go to [README of the Demo Program](gridscan/DEMO_GRIDSCAN.md)
+Go to [README of the Demo Program](../demo/gridscan/DEMO_GRIDSCAN.md)
 
-![The Demo](gridscan/docs/DemoGridScan1.gif)
+![The Demo](../demo/gridscan/docs/DemoGridScan1.gif)
 
 
 ### Pick N Drop (pickndrop)
 
 The pick-n-drop application simulates the operation of discovery of a sphere on a desktop, picking it up to disposing it to a bin. The operation will run indefinitely as the simulator creates new spheres at random locations.
 
-Go to [README of the Demo Program](pickndrop/DEMO_GRIDSCAN.md)
+Go to [README of the Demo Program](../demo/pickndrop/DEMO_GRIDSCAN.md)
 
-![The Demo](pickndrop/docs/DemoPickNDrop1.gif)
+![The Demo](../demo/pickndrop/docs/DemoPickNDrop1.gif)
 
 ### Pick N Drop with Estop (pickndrop_estop)
 
