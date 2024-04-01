@@ -11,13 +11,14 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import sys, signal, random
+import sys, signal, random, time
 import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
 from task_trees.behaviours_move import DoMoveXYZRPY, DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
+from task_trees.states import COMPLETION_STATES
 
 class MoveRandomTask(BasicTask):
     def __init__(self, min_y:float, max_y:float):
@@ -99,8 +100,6 @@ class TaskDemoApplication():
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
-        self.the_blackboard = py_trees.blackboard.Client()
-        self.the_blackboard.register_key(key='the_object', access=py_trees.common.Access.READ)  
         
         self.arm_commander = GeneralCommander('panda_arm')
         self.arm_commander.abort_move(wait=True)
@@ -108,7 +107,6 @@ class TaskDemoApplication():
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # self.the_task_manager.display_tree()
         self._run_demo()
-        self.the_task_manager.spin()
         
     def stop(self, *args, **kwargs):
         logger.info('stop signal received')
@@ -126,7 +124,11 @@ class TaskDemoApplication():
         
         logger.info(f'=== Submit a MoveRandomTask (0.1, 0.4)')
         task_manager.submit_task(the_task:=MoveRandomTask(0.1, 0.4))
-        the_task.wait_for_completion()         
+        # the loop equivalent to wait_for_completion
+        while True:
+            if the_task.get_state() in COMPLETION_STATES:
+                break
+            time.sleep(0.1)        
         
 if __name__=='__main__':
     # rospy.init_node('simple_task_demo', anonymous=False)

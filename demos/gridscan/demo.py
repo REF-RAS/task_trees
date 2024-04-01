@@ -18,7 +18,7 @@ from arm_commander.commander_moveit import GeneralCommander, logger
 from behaviours_gridscan import *
 from task_trees_manager_gridscan import *
 
-# -- Test cases specialized for the Task Manager
+# -- Test cases specialized for the Task Trees Manager
 
 class GridScanDemoApplication():
     """ The application program for the Grid Scanning Demo 

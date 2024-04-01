@@ -1,48 +1,62 @@
-# Task Trees: SDK for Rapid Robot Arm Manipulation Application Development 
+# The Task Trees Framework
 
-The **Task Trees** is a SDK designed to accelerate the development of behaviour-tree based robot arm manipulation applications. It is part of the model architecture for guiding the design of reusable and extensible robot arm manipulation applications.  The architecture also includes the **Arm Commander** [Github Repo](https://github.com/REF-RAS/arm_commander) as the interface to the underlying arm manipulation platform. 
+![QUT REF Collection](https://badgen.net/badge/collections/QUT%20REF-RAS?icon=github) [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-## Overview of the Task Tree Architecture 
+**Robotics and Autonomous Systems Group, Research Engineering Facility, Research Infrastructure**
+**Queensland University of Technology**
 
-The following figure shows the structure robot arm manipulation applications based on the task trees framework and the arm commander. The left-hand-side one represents a standalone application and the right-hand-side one simply has a ROS layer that separates the application logic from the task-level behaviour tree implementation.
+## Introduction
 
-![Application Architecture](./docs/assets/TaskTrees1.png)
-
-Designing and implementation arm manipulation tasks is challenging because such a task spans across low-level arm movement planning (i.e. collision avoidance), scene management (specification of collision objects), semantic-level action planning and execution, exception handling, and interfacing with application logic. 
-
-The **Task Trees SDK**, supported by the **Arm Commander**, addresses the challenge with several programming resources. It adopts [py-trees](https://pypi.org/project/py-trees/), a popular Python behaviour tree module, as the basis and is therefore compatible with systems based on py-trees. 
-
-The task is the most significant concept in the architecture. It represents a sequence of behaviours to achieve an outcome, and at the implementation level it is in the form of a guarded sub-tree in the behaviour tree. The ticking of the sub-tree happens only when the behaviour tree is given the corresponding task to execute.  
-The Task Tree SDK comprises the following programming resources.
-
-- [Extension package of py-tree based behaviour classes for arm manipulation](BEHAVIOURS.md). The package includes ready-to-use behaviour classes for robot arm manipulation and functionally rich base classes for creating custom behaviours.
-- [Task-based Behaviour trees builder and manager](TASK_TREES_MANAGER.md). The tree builder is a behaviour tree framework that is structured to handle task-based behaviour subtrees and ordinary py-tree based subtrees.  
-- [Scene configuration utilities](SCENE_SUPPORT.md). These utilities defines the structure of configuration files, the application programming interface to access the configurations, and the basis for developing custom logical to physical scene conversions. 
-
-## Installation
-
-Refer to the [Installation Guide](INSTALL.md).
-
-## Example: the Push-Block Demo
-
-The [Push-Block Demo Program](demos/pushblock/DEMO_PUSHBLOCK.md) simulates a robot arm moving a block between 4 side channels on an elevated surface. 
+The **Task Trees Framework** is a Python programming module for accelerating the development of behaviour tree based robot manipulator applications. It uses the **Arm Commander** [Github Repo](https://github.com/REF-RAS/arm_commander) as the interface to command the robot manipulator. 
 
 ![Push-Block Animation](./demos/pushblock/docs/DemoPushBlock1.gif)
 
-Moving the block from the current location to one of the three other channels is considered as one task, though there are totally six start-end combinations and also the possibility of the block left in the centre. Check out the implementation to find out how structured and concise it is of the demo program. Essentially, the Task Trees SDK supports the following features in the demo program that significantly accelerate the development. 
-- Using the pre-built move behaviour classes of the extension package instead of coding the robot manipulation in custom behaviour classes.
-- Using conditional behaviours for handling the robot arm in anomalous states (such as left in the centre) in the task subtree instead of coding additional subtrees for anomaly handling.
-- Using custom reference frames to exploit the symmetry in the set of block movements, which eliminates the need to develop a subtree dedicated to one start-end movement.
-- Using the task trees builder to add task subtrees and other prioritized behaviour subtrees, which eliminates the need to build the whole behaviour tree.
-- Delegating operations of the behaviour tree and lifecycle management of submitted tasks to the task trees manager.
+Use the [Documentation Entry Point](http://REF-RAS.github.io/task_trees) to bring you to following parts of the documentation of the task trees framework.
+- Overview of the Task Trees Framework
+- Installation Guide
+- The Instant-Use Behaviours
+- Logical Scene Configuration Support
+- The Task Trees Managers
+- Demonstration Programs
+- Programming Guide to Instant-Use Behaviours in PyTrees 
+- Programming Guide to Instant-Use Behaviours in Task Trees
+- Programming Guide to Task Specification and Execution
+- API Reference
 
-## Demo Programs and Programming Tutorials
+## Programming with the Task Trees Framework
 
-This package includes many demo programs and examples for illustrating the capability of the SDK and how to program behaviour trees with the programming resources of the SDK. 
+The task trees framework offers a rich set of concrete instant-use behaviours, behaviour tree templates and application programming interfaces that enables a developer to start experimenting and crafting robotic tasks in a shortened development cycle.
 
-- Go to the [Demo Program and Programming Tutorial Catalogue](demos/DEMO_PROGRAMS.md)
+The above demonstration program simulates a robot arm moving a cubic block between four narrow side channels on a surface. Moving the block from the current channel to one of the three other channels can modelled as one task using the task trees framework. Note that there are totally six start-end combinations and also the possibility of the block left in the centre. The task is a sequence of instant-use move and utility behaviours provided by the framework, as shown in the code snippet below.
 
-## Author
+```
+   def create_push_block_task_branch(self) -> Composite:
+        # - the branch that executes the task ScanTask
+        move_area_branch = py_trees.composites.Sequence('scan_branch', memory=True,
+                children=[
+                    DoMoveNamedPose('move_home_first_if_inner', ...),
+                    DoMoveXYZ('move_to_area_edge', ...), 
+                    DoRotate('align_with_the_alley', ...),
+                    DoMoveXYZ('move_down', ...),  
+                    SimAttachObject('engage_object', ...),    
+                    DoMoveXYZ('push_object_to_area_5', ...),    
+                    SimDetachObject('detach_at_centre', ...), 
+                    DoMoveXYZ('move_up', ...),
+                    DoMoveXYZRPY('move_align_for_restart', ...),                    
+                    DoMoveXYZ('move_down', ...),                     
+                    SimAttachObject('touch_object', ...),
+                    DoMoveXYZ('push_object_to_target', ...), 
+                    SimDetachObject('detach_object', ...),          
+                    DoMoveXYZ('move_up', ...),                   
+                    ],
+            )
+```
+There are 9 move behaviours for moving the robotic manipulator and 4 utility behaviours for simulating the block relocation by pushing. The utility behaviours would not be needed in a real environment. No new behaviour class is required in the implementation. 
+
+Refer to the [Design Notes on the PushBlock Demo](docs/source/DEMO_PUSHBLOCK.md) for more details.
+
+
+## Developer
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />

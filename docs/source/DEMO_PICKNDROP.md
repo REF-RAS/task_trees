@@ -1,21 +1,23 @@
-# Task Trees Demo: Pick-N-Drop
+# Design Notes: Pick-N-Drop Demo
 
 The pick-n-drop application simulates the operation of discovery of a sphere on a desktop, picking it up to disposing it to a bin. The operation will run indefinitely as the simulator creates new spheres at random locations.
 
-![The Demo](docs/DemoPickNDrop1.gif)
+![The Demo](../../demos/pickndrop/docs/DemoPickNDrop1.gif)
 
 This demo requires the Panda robot model.
 
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/pickndrop)
+
 ## Running the Demo Program
 
-Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](https://github.com/REF-RAS/task_trees/docs/INSTALL.md)
+Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](INSTALL.md)
 
 - Change directory to the root of the catkin workspace, run `source devel/setup.bash`.
 - Change directory to this demo folder, run `/usr/bin/python3 demo.py`.
 
 ## Application Design based on the Task Trees Architecture
 
-![The Design](docs/PickNDropDesign.png)
+![The Design](../../demos/pickndrop/docs/PickNDropDesign.png)
 
 ## The Tasks
 
@@ -73,29 +75,24 @@ The application divides the operation into four tasks:
 
 The scan pattern can be customized. The following are some of the possible patterns.
 
-![The Scan Patterns](docs/PickNDropScanPatterns.png)
+![The Scan Patterns](../../demos/pickndrop/docs/PickNDropScanPatterns.png)
 
 ## The Demo Application
 
-The demo application uses the following state transition machine to determine which task is to be submitted to the task manager for execution. 
+The demo application uses the following state transition machine to determine which task is to be submitted to the task tree manager for execution. 
 
-![The State Transition Machine](docs/PickNDropStates.png)
+![The State Transition Machine](../../demos/pickndrop/docs/PickNDropStates.png)
 
 In the SCAN state, the application monitors results from the sensor. If a sphere is found, the application cancels the ScanTask and jumps to the PICK state. 
 
 ## The Program Files
-- `task_trees_manager_pnd.py`: defines the custom task manager, behaviour sub-trees for every task and the tasks. 
+- `task_trees_manager_pnd.py`: defines the custom task tree manager, behaviour sub-trees for every task and the tasks. 
 - `behaviours_pnd.py`: defines the custom behaviours.
 - `demo.py`: implements the application and its state transition machine.
 - `scan_model`: implements the custom scan patterns for the ScanTask.
 - `task_scene.yaml`: defines the positions and regions
 
-## Links
-
-- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
-- Go back to [README: Overview of the Task Trees SDK](README.md)
-
-## Author
+### Author
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />

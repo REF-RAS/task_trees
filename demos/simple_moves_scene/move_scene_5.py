@@ -41,17 +41,9 @@ class SceneMoveTaskManager(TaskTreesManager):
         
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene_4.yaml'))
         # setup name poses
-        self.named_poses = self.the_scene.keys_config('named_poses')
-        for pose_name in self.named_poses:
-            pose_name = 'named_poses.' + pose_name
-            self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
-
+        self._define_named_poses(self.the_scene)
         # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
-
+        self._define_objects(self.the_scene)
         # build and install the behavior tree
         self._set_initialize_branch(self.create_init_branch())
         self._add_priority_branch(self.create_move_branch())

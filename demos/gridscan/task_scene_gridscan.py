@@ -77,20 +77,6 @@ class GridScanScene(Scene):
                 return position
         return default
     
-    # returns the named_position as a list
-    # def lookup_logical_rotation_as_rpy(self, rotation:str, default=None) -> list:
-    #     """ returns the named_rotation as a list
-    #     :param named_position: the query named_rotation or rotation as rpy list
-    #     :type named_position: str
-    #     :return: returns the rotation rpy as a list
-    #     :rtype: list
-    #     """
-    #     # first check if the rotation is already rpy, which is a list of 3 numbers
-    #     if type(rotation) in [list, tuple] and len(rotation) == 3 and all([(isinstance(n, numbers.Number) or n is None) for n in position]):
-    #         return rotation
-    #     return self.query_config(rotation, default)
-    
-    # compute the physical pose of a logical pose
     def compute_xyzrpy_from_grid_position(self, grid_position) -> list:
         """ maps a tile logical pose into physical pose in the format (xyzrpy)
         :param grid_position: the logical pose either as a list of (tile_x, tile_y, cell_x, cell_y) index or an alias (string)

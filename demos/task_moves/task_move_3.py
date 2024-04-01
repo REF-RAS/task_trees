@@ -130,8 +130,6 @@ class TaskDemoApplication():
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
-        self.the_blackboard = py_trees.blackboard.Client()
-        self.the_blackboard.register_key(key='the_object', access=py_trees.common.Access.READ)  
         
         self.arm_commander = GeneralCommander('panda_arm')
         self.arm_commander.abort_move(wait=True)
@@ -140,7 +138,6 @@ class TaskDemoApplication():
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # self.the_task_manager.display_tree()
         self._run_demo()
-        self.the_task_manager.spin()
         
     def stop(self, *args, **kwargs):
         logger.info('stop signal received')

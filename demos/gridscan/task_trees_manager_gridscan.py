@@ -77,10 +77,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
         self.arm_commander.add_box_to_scene('instrument', [0.05, 0.05, 0.1], [0, 0, 0.051], [0, 0, 0], reference_frame='tool0')
         self.arm_commander.attach_object_to_end_effector('instrument')
         # setup name poses
-        self.named_poses = self.the_scene.keys_config('named_poses')
-        for pose_name in self.named_poses:
-            pose_name = 'named_poses.' + pose_name
-            self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
+        self._define_named_poses(self.the_scene)
         # setup the blackboard and the two blackboard keys 'task'
         self.the_blackboard.register_key(key='task', access=py_trees.common.Access.READ) 
         # build and install the behavior tree

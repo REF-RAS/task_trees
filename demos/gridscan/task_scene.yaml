@@ -1,3 +1,4 @@
+---
 scene:
   named_poses: 
     stow: [3.110, -0.5467, -2.692, -1.473, 1.570, 0.000]  # from base to wrist_3

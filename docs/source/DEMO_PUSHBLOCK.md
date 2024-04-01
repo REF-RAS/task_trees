@@ -1,21 +1,23 @@
-# Task Trees Demo: Push-Block
+# Design Notes: Push-Block Demo
 
 The push-block application simulates a block being moved between 4 side channels involving the end-effector moving into the cavities. The application operates interactively, receiving the target side channel as the destination of the block. The interactive mode can be replaced with the destination randomly drawn.
 
-![The Demo](docs/DemoPushBlock1.gif)
+![The Demo](../../demos/pushblock/docs/DemoPushBlock1.gif)
 
 This demo requires the Panda robot model.
 
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/pushblock)
+
 ## Running the Demo Program
 
-Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](https://github.com/REF-RAS/task_trees/docs/INSTALL.md)
+Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](INSTALL.md)
 
 - Change directory to the root of the catkin workspace, run `source devel/setup.bash`.
 - Change directory to this demo folder, run `/usr/bin/python3 demo.py`.
 
 ## Application Design based on the Task Trees Architecture
 
-![The Design](docs/PushBlockDesign.png)
+![The Design](../../demos/pushblock/docs/PushBlockDesign.png)
 
 ## The Tasks
 
@@ -42,7 +44,7 @@ No custom behaviour is needed
 
 The PushBlock task has a sequence of behaviours that pushes the block from the current side channel to a target side channel. There are 4 side channels labelled Area 1 to 4 as shown in the following figure.
 
-![PushBlock Reference Frames](./docs/PushBlockReferenceFrames.png)
+![PushBlock Reference Frames](../../demos/pushblock/docs/PushBlockReferenceFrames.png)
 
 The behaviour subtree has exploited the symmetry in the problem, which can be summarized to the following:
 - Push the block from the exterior side of the current channel to the interior side and the shared area between the channels.
@@ -94,16 +96,12 @@ The initialization sub-tree runs only once right at the beginning. It moves the 
 The demo application implements a loop with getting the target area from the input and issuing a PushBlock task with the target area as the attribute. 
 
 ## The Program Files
-- `task_trees_manager_pushblock.py`: defines the custom task manager, behaviour sub-trees for every task and the tasks. 
+- `task_trees_manager_pushblock.py`: defines the custom task trees manager, behaviour sub-trees for every task and the tasks. 
 - `demo.py`: implements the application and the loop with interactive input and random target generation.
 - `task_scene.yaml`: defines the positions and regions used in the application.
 
-## Links
 
-- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
-- Go back to [README: Overview of the Task Trees SDK](README.md)
-
-## Author
+### Author
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />

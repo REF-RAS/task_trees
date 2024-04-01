@@ -133,8 +133,6 @@ class TaskDemoROSServer():
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
-        self.the_blackboard = py_trees.blackboard.Client()
-        self.the_blackboard.register_key(key='the_object', access=py_trees.common.Access.READ)  
         
         self.arm_commander = GeneralCommander('panda_arm')
         self.arm_commander.abort_move(wait=True)
@@ -142,7 +140,7 @@ class TaskDemoROSServer():
         self.arm_commander.wait_for_ready_to_move()
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # subscribe to a topic for do commands
-        time.sleep(3.0) # wait for the task manager to finish initialization
+        time.sleep(3.0) # wait for the task trees manager to finish initialization
         self.do_topic_sub = rospy.Subscriber('/taskdemo/do', Int8, self._cb_do_received)
         logger.info(f'The server is listening on /taskdemo/do')
         self.the_task:BasicTask = None

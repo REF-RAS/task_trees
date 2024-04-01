@@ -16,7 +16,7 @@ import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
-from task_trees.behaviours_move import DoMoveXYZRPY, DoMoveDisplaceXYZ
+from task_trees.behaviours_move import DoMoveJointPose, DoMoveDisplaceXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 
 class MoveRectTask(BasicTask):
@@ -46,14 +46,7 @@ class SimpleTaskMoveManager(TaskTreesManager):
 
         # install and unleash the behaviour tree
         self._install_bt_and_spin(self.bt, spin_period_ms)
-    
-    # --------------------------------------------------
-    # --- functions for behaviour trees to generate late binding target poses
-    def generate_random_dxyz(self) -> list:
-        dxyz = [0.0, 0.0, random.uniform(-0.25, -0.35)]
-        logger.info(f'generate_random_dxyz: {dxyz}')
-        return dxyz
-    
+        
     # -------------------------------------------------
     # --- create the behaviour tree and its branches
     
@@ -70,23 +63,18 @@ class SimpleTaskMoveManager(TaskTreesManager):
                     DoMoveDisplaceXYZ('move_dy', True, arm_commander=self.arm_commander, dxyz=[0.0, 0.3, 0]), 
                     DoMoveDisplaceXYZ('move_dz', True, arm_commander=self.arm_commander, dxyz=[0, 0, 0.3]), 
                     DoMoveDisplaceXYZ('move_ndy', True, arm_commander=self.arm_commander, dxyz=[0, -0.3, 0]), 
-                    DoMoveDisplaceXYZ('move_random_ndz', True, arm_commander=self.arm_commander, dxyz=self.generate_random_dxyz),               
+                    DoMoveDisplaceXYZ('move_random_ndz', True, arm_commander=self.arm_commander, 
+                                      dxyz=lambda: [0.0, 0.0, random.uniform(-0.25, -0.35)]),               
                     ],
         )
         return move_branch
     
     # returns a behaviour tree branch that performs initialzation of the robot by moving to a prescribed pose
     def create_init_branch(self) -> Composite:
-        # - the branch that executes the task MoveNamedPoseTask
-        init_branch = Sequence(
-                'init_branch',
-                memory=True,
-                children=[
-                    DoMoveXYZRPY('reset_pose', True, arm_commander=self.arm_commander, target_xyz=[0.3, -0.2, 0.3],
-                                 target_rpy=[3.139, 0.0, -0.785]), 
-                    ],
-        )
-        return init_branch        
+        init_branch = Sequence('init_branch', memory=True,
+                children=[DoMoveJointPose('reset_pose', True, arm_commander=self.arm_commander, 
+                                    target_joint_pose=[0.00, -1.243, 0.00, -2.949, 0.00, 1.704, 0.785],), ],)
+        return init_branch              
    
    
 class TaskDemoApplication():
@@ -94,8 +82,6 @@ class TaskDemoApplication():
     """
     def __init__(self):
         signal.signal(signal.SIGINT, self.stop)
-        self.the_blackboard = py_trees.blackboard.Client()
-        self.the_blackboard.register_key(key='the_object', access=py_trees.common.Access.READ)  
         
         self.arm_commander = GeneralCommander('panda_arm')
         self.arm_commander.abort_move(wait=True)
@@ -103,7 +89,6 @@ class TaskDemoApplication():
         self.the_task_manager = SimpleTaskMoveManager(self.arm_commander)
         # self.the_task_manager.display_tree()
         self._run_demo()
-        self.the_task_manager.spin()
         
     def stop(self, *args, **kwargs):
         logger.info('stop signal received')

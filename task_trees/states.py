@@ -11,7 +11,7 @@ __status__ = 'Development'
 
 from enum import Enum
 
-# the states defined for the Task Manager
+# the states defined for the Task Trees Manager
 class TaskStates(Enum):
     INVALID = -1
     STANDBY = 0
@@ -24,9 +24,9 @@ class TaskStates(Enum):
     GUARD_ABORTED = 7   # the eternal guard is alerted and the current task is aborted  
 
 # the list of states indicating completion of the task
+# note: TaskStates.CANCELLED is not considered completed because the task manager still has to work to cancel the task
 COMPLETION_STATES = [TaskStates.SUCCEEDED, 
                      TaskStates.ABORTED, 
-                     # TaskStates.CANCELLED,    # the task is not considered completed in the cancel state
                      TaskStates.GUARD_ABORTED,
                      TaskStates.FAILED, 
                      TaskStates.INVALID] 

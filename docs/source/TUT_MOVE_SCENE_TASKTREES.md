@@ -1,30 +1,33 @@
-# Task Trees Tutorials: Using Scene Configuration on the Move Behaviour Classes on Py-Trees
+# Tutorial: Instant-Use Move Behaviours, Task Trees, and Logical Scene
 
-This tutorials illustrates how to use scene configuration to enrich the target pose parameter with logical scene names.
+This tutorials illustrates how to use scene configuration to enrich the target pose parameter with logical scene names and for building behaviour trees based on the **Task Trees** framework.
 
 This demo requires the Panda robot model.
 
+[Source Code](../../demos/simple_moves_scene/move_scene_1.py)
+
 ## Running the Demo Program
 
-Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](https://github.com/REF-RAS/task_trees/docs/INSTALL.md)
+Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](INSTALL.md)
 
 - Change directory to the root of the catkin workspace, run `source devel/setup.bash`.
-- Change directory to this demo folder, run one of the demo programs such as  `/usr/bin/python3 move_scene_1.py`.
+- Change directory to this demo folder, run one of the demo programs such as  `/usr/bin/python3 moves_scene_1.py`.
 
 ## Example 1: Loading Named Poses from a Scene Config File
 
 The program `move_scene_1.py` is an extension of the simple move programs in the `pytrees_move` folder. The new additions are the loading the of scene yaml file into the `Scene` object, and using the `Scene` object to load the named poses into the arm commander.
 
 ```
-...
+class SimpleMoveApplication(TaskTreesManager):
+
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
+
+        super(SimpleMoveApplication, self).__init__(arm_commander)
+
         # setup the robotic manipulation platform through the commander
-        self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
-        self.arm_commander.wait_for_ready_to_move()
-
-        # load the scene configuration
+        
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene.yaml'))
         # setup name poses
         self.named_poses = self.the_scene.keys_config('named_poses')
@@ -32,13 +35,11 @@ The program `move_scene_1.py` is an extension of the simple move programs in the
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
 
-        # build the behaviour tree
-        self.root_sequence = self.create_move_branch()
-        self.bt = BehaviourTree(self.root_sequence) 
-        py_trees.display.render_dot_tree(self.bt.root)
-        # spin the tree
-        self.the_thread = threading.Thread(target=lambda: self.bt.tick_tock(period_ms=spin_period_ms), daemon=True)
-        self.the_thread.start()   
+        # build and install the behavior tree
+        self._add_priority_branch(self.create_move_branch())
+        
+        # install and unleash the behaviour tree
+        self._install_bt_and_spin(self.bt, spin_period_ms)  
 ```
 The function `create_move_branch` is given below, which moves between two defined named poses `home` and `stow`.
 ```
@@ -175,7 +176,7 @@ The function `create_move_branch` defines a branch that moves to a random locati
         )
         return move_branch
 ```
-![Move Scene 4](docs/TutorialMoveScene4.gif)
+![Move Scene 4](../../demos/pytrees_moves_scene/docs/TutorialMoveScene4.gif)
 
 
 ## Example 5: Late Binding Reference Frames
@@ -207,12 +208,55 @@ Note that the behaviour construction has the above function passed as the parame
         )
         return move_branch
 ```
-## Links
 
-- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
-- Go back to [README: Overview of the Task Trees SDK](README.md)
+## Example 6: Multi Pose Moves Specified by Logical and Late Binding XYZ with `DoMoveMultiXYZ`
 
-## Author
+The program `move_scene_6.py` illustrates the use of the behaviour class `DoMoveMultiXYZ` that accepts a list of xyz positions, each of which can be a compositional position.
+
+The scene configuration `task_scene_6.yaml` defines four logical positions. It is clear that `start` and `end` are logical x positions, and that `near` and `far` are logical y positions.
+```
+  ...
+  positions:
+    start: [null, -0.3, null]
+    end: [null, 0.3, null]
+    near: [0.4, null, null]
+    far: [0.6, null, null]
+```
+
+The z position is generated at tick-tock time using the following function.
+```
+    def generate_random_z_change(self) -> list:
+        xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
+        xyz = [None, None, xyzrpy[2] + random.uniform(-0.1, 0.1)]
+        logger.info(f'generate_random_xyz: {xyz}')
+        return xyz
+```
+The following shows that the parameter `target_xyz_list` has four waypoints, each of them is a compositional value.
+```
+   def create_move_branch(self) -> Composite:
+
+        move_branch = py_trees.composites.Sequence(
+                'move_branch',
+                memory=True,
+                children=[
+                    DoMoveMultiXYZ('move_multi_xyz', True, arm_commander=self.arm_commander, scene=self.the_scene, target_xyz_list=[
+                                        ('positions.start', 'positions.near', self.generate_random_z_change),
+                                        ('positions.end', 'positions.near', self.generate_random_z_change),
+                                        ('positions.end', 'positions.far', self.generate_random_z_change),
+                                        ('positions.start', 'positions.far', self.generate_random_z_change),                                     
+                                     ]), 
+                    ],
+        )
+        return move_branch
+```
+The behaviour class `DoMoveMultiXYZ` supports compositional waypoint pose, and physical, logical, and late binding of every waypoint pose. 
+
+The other multi-pose behaviour class `DoMoveMultiPose` supports specification of both position and rotation in every waypoint pose, but does not support compositional nor logical and late binding of every waypoint pose. However, it does support tick-tock time generation of the list of waypoints by a function.  
+
+![Move Scene 6](../../demos/simple_moves_scene/docs/TutorialMoveScene6.gif)
+
+
+### Author
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />

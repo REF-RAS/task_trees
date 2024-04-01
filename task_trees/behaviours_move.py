@@ -13,7 +13,7 @@ from py_trees.common import Status
 from std_msgs.msg import Float32
 from geometry_msgs.msg import Pose, PoseStamped
 # robot control module
-from task_trees.behaviours_base import ConditionalBehaviour, SceneConditionalCommanderBehaviour, PrintPose
+from task_trees.behaviours_base import ConditionalCommanderBehaviour, SceneConditionalCommanderBehaviour, PrintPose
 from task_trees.tools import logger
 
 # ----------------------------------------------------------------------
@@ -50,21 +50,48 @@ class DoMoveNamedPose(SceneConditionalCommanderBehaviour):
         logger.info(f'DoMoveNamedPose ({self.name}): started move to named pose: {named_pose}')         
         return Status.RUNNING
 
-class DoMovePose(SceneConditionalCommanderBehaviour):
+class DoMoveJointPose(ConditionalCommanderBehaviour):
+    """ This behaviour moves the robot arm to a pose defined joint-values
+    """
+    def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, target_joint_pose=None):
+        """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
+        :param target_joint_pose: the target joint pose
+        :type target_joint_pose: a list of joint values or a function that returns the list
+        """
+        super(DoMoveJointPose, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
+                                              arm_commander=arm_commander)
+        if target_joint_pose is None:
+            logger.error(f'{__class__.__name__} ({self.name}): parameter (target_joint_pose) is None -> fix the missing value at behaviour construction')
+            raise AssertionError(f'A parameter should not be None nor missing')
+        self.joint_pose = target_joint_pose
+    # the concrete implementation of the logic when the General Commander is READY
+    def update_when_ready(self):
+        # obtain the named pose, and if it is a function, call the function to get the string
+        joint_pose = self.joint_pose
+        if hasattr(joint_pose, '__call__'):
+            joint_pose = joint_pose()
+        # validate the named_pose
+        if joint_pose is None or type(joint_pose) != list:
+            logger.error(f'DoMoveJointPose ({self.name}): invalid joint pose "{joint_pose}" parameter')
+            return Status.FAILURE
+        # send the command to the General Commander in an asynchronous manner
+        self.arm_commander.move_to_joint_pose(joint_pose, wait=False)
+        logger.info(f'DoMoveJointPose ({self.name}): started move to joint pose: {joint_pose}')         
+        return Status.RUNNING
+
+class DoMovePose(ConditionalCommanderBehaviour):
     """ This behaviour moves the end-effector to a pose defined in a reference frame according to a path planner. 
     """
     def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
-                scene=None, target_pose=None, reference_frame=None):
+                target_pose=None, reference_frame=None):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
-        :param the_scene: the scene model for the handling of logical positions specified in the target xyz
-        :type the_scene: Scene
         :param target_pose: the target pose
         :type target_pose: a list of 6 numbers, 7 numbers, Pose, or PoseStamped, or a function that returns the above
         :param reference_frame: the reference_frame
         :type reference_frame: a string representing the reference_frame      
         """
         super(DoMovePose, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, 
-                                         arm_commander=arm_commander, scene=scene, reference_frame=reference_frame)
+                                         arm_commander=arm_commander, reference_frame=reference_frame)
         if target_pose is None:
             logger.error(f'{__class__.__name__} ({self.name}): parameter (target_pose) is None -> fix the missing value at behaviour construction')
             raise AssertionError(f'A parameter should not be None nor missing') 

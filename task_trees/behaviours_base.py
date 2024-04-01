@@ -33,6 +33,7 @@ class ConditionalBehaviour(Behaviour):
         roles in a behaviour tree.
         This class should not be instantiated
     """ 
+
     # the policies defined for the PyTree status to return if the condition is False 
     class Policies(Enum):
         SUCCESS_IF_FALSE_POLICY = 0  # suitable for use under a Sequence or Parallel composite node  
@@ -49,6 +50,7 @@ class ConditionalBehaviour(Behaviour):
         :param condition_policy: the PyTrees status to return when the condition is evaluated to False, defaults to auto-detect the parent class
         :type condition_policy: Policies, optional
         """
+
         super(ConditionalBehaviour, self).__init__(name)
         self.condition_result = None
         self.condition_list = self._preprocess_condition_fn(condition_fn)
@@ -143,6 +145,7 @@ class ConditionalBehaviour(Behaviour):
         :return: the new PyTrees status
         :rtype: Status
         """
+
         need_to_run_behaviour = self._is_condition_satified()
         if need_to_run_behaviour:
             return self.update_if_true()
@@ -161,6 +164,7 @@ class ConditionalBehaviour(Behaviour):
         :return: The new PyTrees status
         :rtype: Status
         """
+
         # no action defined here and therefore return FAILURE
         return Status.FAILURE    
       

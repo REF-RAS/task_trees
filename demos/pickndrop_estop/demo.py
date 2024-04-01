@@ -44,10 +44,10 @@ class GuardedPNDDemoApplication():
         self.the_blackboard.attached_object = False
         # set up the blackboard variable for recording 
         self.the_blackboard.register_key(key='seen_object', access=py_trees.common.Access.READ)  
-        # set up the commander and the task manager
+        # set up the commander and the task trees manager
         self.arm_commander = GeneralCommander('panda_arm')
         self.the_task_manager = PNDTaskTreesManager(self.arm_commander)
-        # add global guard condition function to the task manager
+        # add global guard condition function to the task trees manager
         self.the_task_manager.set_global_guard_condition_fn(self.estop_guard_condition)
         
         self.to_stop = False

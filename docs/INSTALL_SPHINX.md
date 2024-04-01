@@ -12,7 +12,7 @@ sudo pip install sphinx_rtd_theme myst_parser docutils==0.20
 ## Deploy Sphinx documentation to Github Pages
 
 https://coderefinery.github.io/documentation/gh_workflow/
-
+ 
 ## Handling Markdown in Sphinx
 
 ```

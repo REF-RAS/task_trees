@@ -1,14 +1,14 @@
-# Task Trees Tutorials: Using Move Behaviour Classes in the Task Trees Framework
+# Tutorial: Instant-Use Move Behaviours with PyTrees
 
-This tutorials illustrates examples of using the move behaviour classes for building behaviour trees based on the **Task Trees** framework.
-
-The task trees framework reduces the complexity in building behaviour trees by providing a skeleton behaviour tree and functions for operating the tree with ease.
+This tutorials illustrates examples of using the move behaviour classes for building behaviour trees based on py-tree.
 
 This demo requires the Panda robot model.
 
+[Source Code](../../demos/pytrees_moves/simple_move_1.py)
+
 ## Running the Demo Program
 
-Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](https://github.com/REF-RAS/task_trees/docs/INSTALL.md)
+Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](INSTALL.md)
 
 - Change directory to the root of the catkin workspace, run `source devel/setup.bash`.
 - Change directory to this demo folder, run one of the demo programs such as  `/usr/bin/python3 simple_move_1.py`.
@@ -17,24 +17,22 @@ Assume that the task trees and the arm commander packages are installed in a cat
 
 The program `simple_move_1.py` illustrates a small program that build the simplest behaviour tree and populate it with a move behaviour class.
 
-The following is the common constructor for the series of demo programs. The class is based on the `TaskTreeManager`, which is the baseline framework class. 
-
-It setups the arm commander, creates a branch and stick the branch to the framework through the function `_add_priority_branch`. Finally, the function `_install_bt_and_spin` is called to run the behaviour tree.
+The following is the common constructor for the series of demo programs. It setups the arm commander, creates a branch and stick the branch to a py-tree `BehaviourTree` object. It finally creates a new thread to run the behaviour tree.
 ```
-class SimpleMoveApplication(TaskTreesManager):
-
+...
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
-        super(SimpleMoveApplication, self).__init__(arm_commander)
-
         # setup the robotic manipulation platform through the commander
+        self.arm_commander:GeneralCommander = arm_commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
-
-        # build and install the behavior tree
-        self._add_priority_branch(self.create_move_branch())
-        
-        # install and unleash the behaviour tree
-        self._install_bt_and_spin(self.bt, spin_period_ms)
+        self.arm_commander.wait_for_ready_to_move()
+        # build the behaviour tree
+        self.root_sequence = self.create_move_branch()  ##### populate the branch
+        self.bt = BehaviourTree(self.root_sequence) 
+        py_trees.display.render_dot_tree(self.bt.root)
+        # spin the tree
+        self.the_thread = threading.Thread(target=lambda: self.bt.tick_tock(period_ms=spin_period_ms), daemon=True)
+        self.the_thread.start() 
 ```
 The function `create_move_branch` is given below, which creates a Sequence of one behaviour.
 ```
@@ -88,7 +86,7 @@ The function `self.generate_random_xyz` is listed below. It returns a xyz list w
         logger.info(f'generate_random_xyz: {xyz}')
         return xyz
 ```
-![Simple Move 3](../pytrees_moves/docs/TutorialSimpleMove3.gif)
+![Simple Move 3](../../demos/pytrees_moves/docs/TutorialSimpleMove3.gif)
 
 ## Example 4: Two Sequence Branches and the class `DoMoveXYZRPY`
 
@@ -141,7 +139,7 @@ The following table explains the composition of the parameter `target_xyz`.
 | 1 | `[0.3, None, None]` | `[0.3, None, None]` | |
 | 2 | self.generate_random_xyz |  `[0.3, ry, rz]` | Assume the function returns [rx, ry, rz] |
 
-![Simple Move 4](../pytrees_moves/docs/TutorialSimpleMove4.gif)
+![Simple Move 4](../../demos/pytrees_moves/docs/TutorialSimpleMove4.gif)
 
 
 ## Example 5: More Complex Trees and the class `DoMoveDisplaceXYZ`
@@ -167,7 +165,7 @@ The program `simple_move_5.py` shows a more complex move branch, which utilizes 
         )
         return move_branch
 ```
-![Simple Move 5](../pytrees_moves/docs/TutorialSimpleMove5.gif)
+![Simple Move 5](../../demos/pytrees_moves/docs/TutorialSimpleMove5.gif)
 
 ## Example 6: Two Behaviours in a Sequence using `DoMovePose`
 
@@ -212,86 +210,10 @@ The function `self.generate_random_move` is listed below. It obtains the current
         return xyzrpy
 ```
 
-## Example 8: Multi-Pose Move with `DoMoveMultiPose`
 
-The program `multi_move_1.py` defines a move_branch with one behaviour of the class `DoMoveMultiPose`, of which the movement is a continous
-one passing through multiple poses or waypoints. The `target_poses` parameter accepts a list of poses, each of which can be a 6-list (xyzrpy),
-7-list (xyzqqqq), Pose, or PoseStamped. 
-```
-    def create_move_branch(self) -> Composite:
 
-        move_branch = py_trees.composites.Sequence(
-                'move_branch',
-                memory=True,
-                children=[
-                    DoMoveMultiPose('move_xyz', True, arm_commander=self.arm_commander, target_poses=[
-                        (0.6, 0.0, 0.4, 3.14, 0, 0), 
-                        (0.6, 0.2, 0.5, 3.14, 0, 0), 
-                        (0.6, 0.2, 0.6, 3.14, 0, 1.58), 
-                        (0.6, 0.0, 0.7, 3.14, 0, 3.14), 
-                        (0.6, -0.2, 0.6, 3.14, 0, 1.58), 
-                        (0.6, -0.2, 0.5, 3.14, 0, 0), 
-                        (0.6, 0.0, 0.4, 3.14, 0, 0),
-                        ]), 
-                    ],
-        )
-        return move_branch
-```
 
-![Multi Move 1](docs/TutorialMultiMove1.gif)
-
-## Example 9: Late Binding of the Target Poses in `DoMoveMultiPose`
-
-The behaviour class `DoMoveMultiPose` supports late binding in the parameters `target_poses` and `reference_frames`. 
-
-The program `multi_move_2.py` defines a move_branch with three behaviours. The first behaviour `DoMovePose` moves the end-effector to a constant starting pose. The second behaviour, based on `DoMoveMultiPose`, minics a scan pattern along the y and z axes. The final behaviour, also based on  `DoMoveMultiPose`, rotates the end effector randomly. The last two behaviours use late binding so that the poses can be generated on the fly based on the current pose of the end effector.
-```
-        ...
-        children=[
-            DoMovePose('move_start_pose', True, arm_commander=self.arm_commander, target_pose=[0.3, 0.0, 0.3, 3.14, 0, 2.3]), 
-            DoMoveMultiPose('scan_move_pattern', True, arm_commander=self.arm_commander, target_poses=self.generate_scan_movement), 
-            DoMoveMultiPose('multi_rotations', True, arm_commander=self.arm_commander, target_poses=self.generate_random_rotations),                     
-            ],
-        ...
-```
-The second behaviour specifies the function `generate_scan_movement` as the target_poses. The function returns a list of 6-list (xyzrpy) poses generated using the current pose as the starting point during tick-tock time.
-```
-    SCAN_PATTERN = [(1, 0.3), (1, -0.6), (2, 0.05), 
-                    (1, 0.6), (1, -0.6), (2, 0.05), 
-                    (1, 0.6), (1, -0.3)]
-    def generate_scan_movement(self) -> list:
-        xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
-        target_poses = [xyzrpy]
-        # change the xyzrpy pose according to the SCAN_PATTERN, of which each element comprises (the index to change, the change value)
-        for s in MultiMoveTaskManager.SCAN_PATTERN:
-            xyzrpy = xyzrpy.copy()
-            xyzrpy[s[0]] += s[1]
-            target_poses.append(xyzrpy)
-        logger.info(f'generate_scan_movement: {xyzrpy}')
-        return target_poses
-```
-The last behaviour specifies the function `generate_random_rotations` as the target poses. 
-```
-    def generate_random_rotations(self) -> list:
-        xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy()
-        target_poses = [xyzrpy]
-        # change the yaw component of the xyzrpy pose randomly
-        for i in range(10):
-            xyzrpy = xyzrpy.copy()
-            xyzrpy[5] += random.uniform(-1.57, 1.57)
-            target_poses.append(xyzrpy)
-        logger.info(f'generate_random_rotations: {xyzrpy}')
-        return target_poses
-```
-
-![Multi Move 2](docs/TutorialMultiMove2.gif)
-
-## Links
-
-- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
-- Go back to [README: Overview of the Task Trees SDK](README.md)
-
-## Author
+### Author
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />

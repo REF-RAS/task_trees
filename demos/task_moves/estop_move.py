@@ -11,20 +11,20 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import os
-import py_trees
+import random
 from py_trees.composites import Sequence, Parallel, Composite, Selector
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
-from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate
-from task_trees.task_trees_manager import TaskTreesManager
-from task_trees.task_scene import Scene
+from task_trees.behaviours_move import DoMoveXYZ, DoMoveJointPose
+from task_trees.task_trees_manager import GuardedTaskTreesManager
+from estop import EStop
 
 # ---------------------------------------
 # The TaskManager specialized for this application
-class SceneMoveTaskManager(TaskTreesManager):
-    """ This is a subclass of TaskManager, for illustration of using the framework for developing behaviour trees
-        The behaviour tree contains one behaviour, which moves to a pose specified in xyz
+class EStopMoveTaskManager(GuardedTaskTreesManager):
+    """ This is a subclass of GuardedTaskTreesManager, for illustration of using the guard condition that can
+        halt the tick-tocking of the behaviour trees. The condition is provided by the EStop class which has a
+        GUI button for triggering the guard
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
         """ the constructor
@@ -33,50 +33,57 @@ class SceneMoveTaskManager(TaskTreesManager):
         :param spin_period_ms: the tick_tock period, defaults to 10 seconds
         :type spin_period_ms: int, optional
         """
-        super(SceneMoveTaskManager, self).__init__(arm_commander)
+        super(EStopMoveTaskManager, self).__init__(arm_commander)
 
         # setup the robotic manipulation platform through the commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
-        
-        self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene.yaml'))
-        # setup name poses
-        self._define_named_poses(self.the_scene)
-
         # build and install the behavior tree
-        self._add_priority_branch(self.create_move_branch())
-        
+        self._set_initialize_branch(self.create_init_branch())
+        self._add_priority_branch(self.create_move_branch())      
         # install and unleash the behaviour tree
         self._install_bt_and_spin(self.bt, spin_period_ms)
-    
+        # setup estop and connect its state to the global guard of the task tree
+        self.estop = EStop()
+        self.set_global_guard_condition_fn(lambda: not self.estop.get_estop_state())
+        self.estop.gui_loop()
+        
     # -------------------------------------------------
     # --- create the behaviour tree and its branches
     
-    # A behaviour tree branch that moves to a specified named poses
+    # returns a behaviour tree branch that move the end_effector to random positions
     def create_move_branch(self) -> Composite:
-        """ Return a behaviour tree branch that moves to two named poses defined in the task scene config file
+        """ Returns a behaviour tree branch that move the end_effector to random positions
         :return: a branch for the behaviour tree  
         :rtype: Composite
         """
-        move_branch = py_trees.composites.Sequence(
-                'move_branch',
-                memory=True,
+        move_branch = Sequence('move_branch', memory=True,
                 children=[
-                    DoMoveNamedPose('move_to_stow', True, arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.stow'),
-                    DoMoveNamedPose('move_to_homw', True, arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),                     
+                    DoMoveXYZ('move_xyz', True, arm_commander=self.arm_commander, target_xyz=
+                        lambda: [random.uniform(0.1, 0.5), random.uniform(-0.3, 0.3), random.uniform(0.2, 0.6)]), 
                     ],
         )
         return move_branch
+    
+    def create_init_branch(self) -> Composite:
+        # - the branch that executes the task MoveNamedPoseTask
+        init_branch = Sequence('init_branch', memory=True,
+                children=[
+                    DoMoveJointPose('reset_pose', True, arm_commander=self.arm_commander, 
+                                    target_joint_pose=[0.00, -1.243, 0.00, -2.949, 0.00, 1.704, 0.785],), 
+                    ],
+        )
+        return init_branch   
     
 if __name__=='__main__':
     # rospy.init_node('simple_move_example', anonymous=False)
     try:
         arm_commander = GeneralCommander('panda_arm')
-        the_task_manager = SceneMoveTaskManager(arm_commander)
+        the_task_manager = EStopMoveTaskManager(arm_commander)
         # display the behaviour tree as an image
         # the_task_manager.display_tree(target_directory=os.path.dirname(__file__))
-        logger.info('simple_move_example is running')
-        the_task_manager.spin()
+        logger.info('estop_move_example is running')
+
     except Exception as e:
         logger.exception(e)
       

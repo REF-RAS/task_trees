@@ -99,13 +99,14 @@ class Scene():
                 pointer = pointer[item]
         return pointer
     
+    # alias for backward compatibility query_config 
     def query_position_as_xyz(self, name, default=None):
         return self.query_config(name, default)
     
     def query_rotation_as_rpy(self, name, default=None):
         return self.query_config(name, default)    
 
-    # returns the main scene config as a dict
+    # returns the root scene config as a dict
     def get_scene_config(self) -> dict:
         """ returns the main scene config in the config file as a dict
         :return: the content in the config file

@@ -85,10 +85,7 @@ class PNDTaskTreesManager(TaskTreesManager):
         self.arm_commander.reset_world()
         self.arm_commander.set_workspace_walls(*(self.the_scene.query_config('regions.workspace')))
         # setup name poses
-        self.named_poses = self.the_scene.keys_config('named_poses')
-        for pose_name in self.named_poses:
-            pose_name = 'named_poses.' + pose_name
-            self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
+        self._define_named_poses(self.the_scene)
 
         # setup the blackboard and the two blackboard keys 'seen_object'
         self.the_blackboard.register_key(key='seen_object', access=py_trees.common.Access.WRITE)      

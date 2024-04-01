@@ -36,7 +36,7 @@ class PushBlockROSServer():
                             TaskAction, execute_cb=self.received_goal, auto_start=False)
         self.the_action_server.register_preempt_callback(self.received_preemption)
         self.the_action_server.start() 
-        # setup the task manager
+        # setup the task trees manager
         self.arm_commander = GeneralCommander('panda_arm')
         self.the_task_manager = PushBlockTaskTreesManager(self.arm_commander)
         

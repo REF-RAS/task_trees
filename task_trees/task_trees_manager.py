@@ -35,9 +35,9 @@ class BasicTask():
         self.state = TaskStates.STANDBY                     # the init state
         self.result = ''                                    # the task result, which will be assigned by the TaskTreesManager at completion
         self.commander_feedback:str = None
-        # the cancel function of the task manager
+        # the cancel function of the task trees manager
         self._cancel_fn = None                              # internal use
-        # the time submitted to the task manager
+        # the time submitted to the task trees manager
         self._submit_time = None                            # internal use
     
     # function for updating the state in a thread-safe manner
@@ -64,7 +64,7 @@ class BasicTask():
     def _set_submitted(self, cancel_fn):
         """ The task has been submitted to the TaskTreesManager, and consequently the state of this task is updated and
             the callback function for task cancellation is stored (to de-couple the )
-        :param cancel_fn: the cancel function provided by the Task Manager
+        :param cancel_fn: the cancel function provided by the Task Trees Manager
         :type cancel_fn: func
         """
         self.update_state(TaskStates.SUBMITTED)
@@ -155,9 +155,9 @@ class BasicTask():
         return self.commander_feedback
 
 # -----------------------------------------------------------------------------------------------------------
-# The generic Basic Task Manager for managing the life cycle of the actions and behaviours for various tasks  
+# The generic Basic Task Trees Manager for managing the life cycle of the actions and behaviours for various tasks  
 class BasicTaskTreesManager:
-    """ subclass the BasicTaskTreesManager to develop a project specific task manager and its behaviour trees.
+    """ subclass the BasicTaskTreesManager to develop a project specific task trees manager and its behaviour trees.
     """
     def __init__(self):
         """ the constructor
@@ -214,7 +214,7 @@ class BasicTaskTreesManager:
 
     # function for handling the SIGINT signal
     def stop(self, *args, **kwargs):
-        logger.warning(f'{__class__.__name__}: SIGNINT signal received -> interrupt the tick-tock of the behaviour tree and shutdown the task manager')
+        logger.warning(f'{__class__.__name__}: SIGNINT signal received -> interrupt the tick-tock of the behaviour tree and shutdown the task trees manager')
         self.shutdown()
         sys.exit(0)
 
@@ -223,16 +223,16 @@ class BasicTaskTreesManager:
         while not self.to_shutdown:
             time.sleep(1.0)
 
-    # shutdown the task manager
+    # shutdown the task trees manager
     def shutdown(self):
-        """ Shutdown the task manager immediately
+        """ Shutdown the task trees manager immediately
         """
         # terminate the behaviour tree tick-tock
         if self.bt is not None:
             self.bt.interrupt()
             self.bt.shutdown()
         else:
-            logger.warning(f'{__class__.__name__}: attempted to shutdown a task manager with no behaviour tree installed')
+            logger.warning(f'{__class__.__name__}: attempted to shutdown a task trees manager with no behaviour tree installed')
         # terminate the spin
         self.to_shutdown = True
         
@@ -246,12 +246,12 @@ class BasicTaskTreesManager:
             return self.the_blackboard.task
         return None
     
-    # allows a client application to submit a task to this task manager
+    # allows a client application to submit a task to this task trees manager
     def submit_task(self, the_task:BasicTask) -> bool:
         """ The window for task submission.
         :param the_task: The task to be executed
         :type the_task: a subclass of robotarchi.BasicTask
-        :return: True if the task manager is in the states that can accept the task submission 
+        :return: True if the task trees manager is in the states that can accept the task submission 
         :rtype: bool
         """
         
@@ -263,18 +263,18 @@ class BasicTaskTreesManager:
         self.the_blackboard.set('task', the_task, overwrite=True) 
         return True
         
-    # a utility function for rendering a the behaviour tree of this task manager as a dot file
+    # a utility function for rendering a the behaviour tree of this task trees manager as a dot file
     def display_tree(self):
-        """ renders the behaviour tree of this task manager as a dot file
+        """ renders the behaviour tree of this task trees manager as a dot file
         """
         if self.bt is None:
-            logger.error(f'{__class__.__name__}: attempted to display the bt of a task manager without one installed -> fix the subclass by assigning a behaviour tree to self.bt')
+            logger.error(f'{__class__.__name__}: attempted to display the bt of a task trees manager without one installed -> fix the subclass by assigning a behaviour tree to self.bt')
             raise AssertionError(f'A subclass of {__class__.__name__} has not assigned a behaviour tree to self.bt')         
         py_trees.display.render_dot_tree(self.bt.root)
 
 
 # -----------------------------------------------------------------------------------------------------------
-# The generic Task Manager to support the framework of behaviour tree development 
+# The generic Task Trees Manager to support the framework of behaviour tree development 
 # it is for managing the life cycle of the actions and behaviours for various tasks  
 class TaskTreesManager(BasicTaskTreesManager):
     """ subclass the TaskTreesManager to develop application specific behaviour trees that are structures to support
@@ -292,7 +292,7 @@ class TaskTreesManager(BasicTaskTreesManager):
         self.num_initialize_branch = 0
         self.num_priority_branch = 0
 
-    # shutdown the task manager
+    # shutdown the task trees manager
     def shutdown(self):
         self.arm_commander.abort_move(wait=True)
         super().shutdown()
@@ -323,6 +323,24 @@ class TaskTreesManager(BasicTaskTreesManager):
             ])
         self.the_root = BehaviourTree(self.root_sequence) 
         return self.the_root
+    
+    def _define_named_poses(self, the_scene:Scene):
+        named_poses = the_scene.keys_config('named_poses')
+        for pose_name in named_poses:
+            pose_name = 'named_poses.' + pose_name
+            self.arm_commander.add_named_pose(pose_name, the_scene.query_config(pose_name))
+            
+    def _define_objects(self, the_scene:Scene):
+        for object_name in the_scene.list_object_names():
+            the_object = the_scene.get_object_config(object_name)
+            if the_object.type == 'box':
+                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
+            elif the_object.type == 'sphere':
+                self.arm_commander.add_sphere_to_scene(object_name, the_object.dimensions, the_object.xyz)
+            elif the_object.type == 'object':
+                self.arm_commander.add_object_to_scene(object_name, the_object.model_file, the_object.dimensions, the_object.xyz, the_object.rpy)
+            else:
+                logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_object.type}"')
         
     def _set_initialize_branch(self, branch:Composite):
         if self.num_initialize_branch > 0:
@@ -370,30 +388,24 @@ class TaskTreesManager(BasicTaskTreesManager):
 
 
 # -----------------------------------------------------------------------------------------------------------
-# The generic Guarded Task Manager to support the framework of behaviour tree development 
+# The generic Guarded Task Trees Manager to support the framework of behaviour tree development 
 # it is for managing the life cycle of the actions and behaviours for various tasks  
 # the difference from TaskTreesManager is the option of setting conditions to invalidate the behaviour at every tick-tock
 class GuardedTaskTreesManager(TaskTreesManager):
     """ subclass the TaskTreesManager to develop application specific behaviour trees that are structures to support
         the plug-in of tasks, timeout, and on-shot initialization branches 
     """
-    def __init__(self, arm_commander:GeneralCommander, global_guard_condition_fn=None, task_guard_condition_fn=None, guard_reset=True):
+    def __init__(self, arm_commander:GeneralCommander, guard_reset=True):
         """The constructor for this class
 
         :param arm_commander: The commander to be used for the behaviours in the task tree
         :type arm_commander: GeneralCommander
-        :param global_guard_condition_fn: the condition function that trigger the global guard for the task trees, defaults to None
-        :type global_guard_condition_fn: a function returning a bool type, True if no alert, optional
-        :param task_guard_condition_fn: the condition function that trigger the task guard for the task trees, defaults to None
-        :type task_guard_condition_fn: a function returning a bool type, True if no alert, optional
         :param guard_reset: whether an activated guard needs reset to go back to unactivated state, defaults to True
         :type guard_reset: bool, optional
         """
         self.global_guard_activated = False
         self.task_guard_activated = False
-        self.custom_global_guard_condition_fn = self.custom_task_guard_condition_fn = None
-        self.set_global_guard_condition_fn(global_guard_condition_fn)
-        self.set_task_guard_condition_fn(task_guard_condition_fn)        
+        self.custom_global_guard_condition_fn = self.custom_task_guard_condition_fn = None        
         self.guard_reset = guard_reset
         super(GuardedTaskTreesManager, self).__init__(arm_commander)
         

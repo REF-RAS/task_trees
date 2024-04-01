@@ -44,10 +44,10 @@ class GuardedPNDDemoApplication():
         self.the_blackboard.attached_object = False
         # set up the blackboard variable for recording 
         self.the_blackboard.register_key(key='seen_object', access=py_trees.common.Access.READ)  
-        # set up the commander and the task manager
+        # set up the commander and the task trees manager
         self.arm_commander = GeneralCommander('panda_arm')
         self.the_task_manager = PNDTaskTreesManager(self.arm_commander)
-        # add global guard condition function to the task manager
+        # add global guard condition function to the task trees manager
         self.the_task_manager.set_global_guard_condition_fn(self.estop_guard_condition)
         
         self.to_stop = False
@@ -137,14 +137,14 @@ class GuardedPNDDemoApplication():
             elif state == DemoStates.STOP:
                 logger.info(f'=== PickNDrop STOP')   
                 if the_task is not None and the_task.get_state() == TaskStates.GUARD_ABORTED:
-                    logger.warning(f'Aborted by the EStop -> waiting for the reset of the task manager') 
+                    logger.warning(f'Aborted by the EStop -> waiting for the reset of the task trees manager') 
                 time.sleep(3.0) # wait for a few seconds to simulate the recovery
                 logger.warning(f'Attempt to recover -> release the E-Stop button')       
                 while True:
                     if self.estop_status == False:
                         break
                     time.sleep(1.0)
-                logger.info(f'Reset the guard of the task manager') 
+                logger.info(f'Reset the guard of the task trees manager') 
                 self.the_task_manager.reset_guard()
                 if self.the_blackboard.attached_object:
                     task_manager.submit_task(the_task := DropObjectTask())                    

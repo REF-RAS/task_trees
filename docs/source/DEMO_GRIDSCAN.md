@@ -1,21 +1,23 @@
-# Task Trees Demo: GridScan
+# Design Notes: GridScan Demo
 
 The gridscan application simulates the operation of an end-effector working over a grid surface inside a shallow tank. The end-effector moves between grid cells inside the tank according to a program and moves back to a home pose. During the operation, the end-effector changes the orientation while moving to different parts ot the tank.
 
-![The Demo](docs/DemoGridScan1.gif)
+![The Demo](../../demos/gridscan/docs/DemoGridScan1.gif)
 
 This demo requires the UR10 robot model.
 
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/gridscan)
+
 ## Running the Demo Program
 
-Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](https://github.com/REF-RAS/task_trees/docs/INSTALL.md)
+Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](INSTALL.md)
 
 - Change directory to the root of the catkin workspace, run `source devel/setup.bash`.
 - Change directory to this demo folder, run `/usr/bin/python3 demo.py`.
 
 ## Application Design based on the Task Trees Architecture
 
-![The Design](docs/GridScanDesign.png)
+![The Design](../../demos/gridscan/docs/GridScanDesign.png)
 
 ## The Tasks
 
@@ -101,22 +103,17 @@ Loop through global grid cell (x, y) where x, y in the set of cell indices
 
 The application has a prescribed work program driven by the loop, which is illustrated below. The scan pattern can be customized. 
 
-![The Scan Program](docs/GridScanProgram.png)
+![The Scan Program](../../demos/gridscan/docs/GridScanProgram.png)
 
 ## The Program Files
-- `task_trees_manager_gridscan.py`: defines the custom task manager, behaviour sub-trees for every task and the tasks. 
+- `task_trees_manager_gridscan.py`: defines the custom task tree manager, behaviour sub-trees for every task and the tasks. 
 - `behaviours_gridscan.py`: defines custom behaviours.
 - `behaviours_advanced.py`: defines an advanced custom behaviour.
 - `demo.py`: implements the application and its state transition machine.
 - `task_scan_gridscan`: implements the scan program.
 - `task_scene.yaml`: defines the positions and regions
 
-## Links
-
-- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
-- Go back to [README: Overview of the Task Trees SDK](README.md)
-
-## Author
+### Author
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />

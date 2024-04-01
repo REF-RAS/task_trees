@@ -1,12 +1,14 @@
-# Task Trees Tutorials: Defining and Using Task for Application Development using the Task Tree framework
+# Tutorial: Tasks Specification and Execution with Task Trees Manager
 
-This tutorials illustrates how to define tasks for the task tree manager, and to submit tasks to the task manager and wait for its completion.
+This tutorials illustrates how to define tasks for the task tree manager, and to submit tasks to the task trees manager and wait for its completion.
 
 This demo requires the Panda robot model.
 
+[Source Code](../../demos/task_moves/task_move_1.py)
+
 ## Running the Demo Program
 
-Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](https://github.com/REF-RAS/task_trees/docs/INSTALL.md)
+Assume that the task trees and the arm commander packages are installed in a catkin_workspace. Refer to the [Installation Guide](INSTALL.md)
 
 - Change directory to the root of the catkin workspace, run `source devel/setup.bash`.
 - Change directory to this demo folder, run one of the demo programs such as  `/usr/bin/python3 task_move_1.py`.
@@ -41,12 +43,12 @@ class MoveRectTask(BasicTask):
         super(MoveRectTask, self).__init__()
 ```
 
-Third, add the above two to the task branch in the behaviour tree skeleton managed by the task manager 
+Third, add the above two to the task branch in the behaviour tree skeleton managed by the task trees manager 
 ```
     self._add_task_branch(self.create_move_rect_branch(), MoveRectTask)
 ```
 
-Finally, define the following demo application that submit the tasks 10 times to the task manager.
+Finally, define the following demo application that submit the tasks 10 times to the task trees manager.
 ```
 class TaskDemoApplication():
     """ The application program for the simple Task Demo
@@ -115,11 +117,22 @@ class MoveRandomTask(BasicTask):
         self.max_y = max_y
 ```
 
-Third, add the above two to the task branch of the behaviour tree skeleton of the task manager.
+Third, add the above two to the task branch of the behaviour tree skeleton of the task trees manager.
 ```
     self._add_task_branch(self.create_move_3_random_branch(), MoveRandomTask)
 ```
-Finally, create a demo application that submit the task to the task manager.
+Fourth, implement the function generate_random_xyz. This function needs access to the task parameters `min_y` and `max_y`. The framework provides access to the current Task object in the blackboard under the key `task`.
+```
+    def generate_random_xyz(self) -> list:
+        if not self.the_blackboard.exists('task'):
+            raise TypeError(f'unable to generate random pose due to no task has been submitted')
+        min_y = self.the_blackboard.task.min_y
+        max_y = self.the_blackboard.task.max_y           
+        xyz = [None, random.uniform(min_y, max_y), None]
+        return xyz
+```
+
+Finally, create a demo application that submit the task to the task trees manager.
 ```
 class TaskDemoApplication():
     ... 
@@ -169,16 +182,16 @@ class TaskDemoApplication():
                 task_manager.submit_task(the_task:=MoveRandomTask(-0.3, 0.3))
                 the_task.wait_for_completion() 
 ```
-![Demo](docs/DemoTaskMove3.gif)
+![Demo](../../demos/task_moves/docs/DemoTaskMove3.gif)
 
 
 ## Example 4: Interactive Task Execution and Cancellation with ROS, GUI Interface
 
-This example is a client-server application that illustrates the use ROS topic messages to execute and cancel tasks from a GUI interface. The server, the task, and the task manager are defined in the file `task_move_4.py` and the GUI interface with a ROS client is defined in `task_move_4_gui.py`. The design of the application is shown below.
+This example is a client-server application that illustrates the use ROS topic messages to execute and cancel tasks from a GUI interface. The server, the task, and the task trees manager are defined in the file `task_move_4.py` and the GUI interface with a ROS client is defined in `task_move_4_gui.py`. The design of the application is shown below.
 
-![Design of Task Move 4](docs/TutorialTaskMove4.png)
+![Design of Task Move 4](../../demos/task_moves/docs/TutorialTaskMove4.png)
 
-![Demo](docs/DemoTaskMove4.gif)
+![Demo](../../demos/task_moves/docs/DemoTaskMove4.gif)
 
 The class `SimpleTaskMoveManager` and the task definitions are unchanged from Example 3. The interactive application is replaced with the follwoing ROS server that listens on the topic `/taskdemo/do`.
 
@@ -187,7 +200,7 @@ class TaskDemoROSServer():
     def __init__(self):
     ...
         # subscribe to a topic for do commands
-        time.sleep(3.0) # wait for the task manager to finish initialization
+        time.sleep(3.0) # wait for the task trees manager to finish initialization
         self.do_topic_sub = rospy.Subscriber('/taskdemo/do', Int8, self._cb_do_received)
         logger.info(f'The server is listening on /taskdemo/do')
         self.the_task:BasicTask = None
@@ -238,7 +251,7 @@ class TaskDemoGUI():
                 else:
                     self.task_pub.publish(Int8(2))
 ```
-#### Running the Demo Program
+### Running the Demo Program
 
 The task buttons are in a GUI that runs on the graphics module by John Zelle and Tkinter. The latter requires the following installation step.
 
@@ -252,17 +265,12 @@ This demo program comprises of the ROS server and the GUI client, which are runn
 - Change directory to this demo folder, run the ROS server  `/usr/bin/python3 task_move_4.py`.
 - Run the GUI client `/usr/bin/python3 task_move_4_gui.py`.
 
-## Links
-
-- Go back to [Demo Program Catalogue](../DEMO_PROGRAMS.md)
-- Go back to [README: Overview of the Task Trees SDK](README.md)
-
-## Acknowledgement
+### Acknowledgement
 
 The `graphics.py` file is open-source written by John Zelle for use with the book "Python Programming: An
 Introduction to Computer Science" (Franklin, Beedle & Associates). 
 
-## Author
+### Author
 
 Dr Andrew Lui, Senior Research Engineer <br />
 Robotics and Autonomous Systems, Research Engineering Facility <br />
