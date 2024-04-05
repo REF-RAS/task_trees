@@ -22,10 +22,11 @@ from task_scene_gridscan import GridScanScene
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate, DoMoveXYZRPY
 from task_trees.behaviours_base import *
 from task_trees.task_trees_manager import BasicTaskTreesManager, TaskTreesManager, BasicTask, TaskStates
+from task_trees.scene_to_rviz import SceneToRViz
 from task_trees.tools import logger
 from demos.gridscan.behaviours_gridscan import SimCalibrate, DoMoveTankGrid
 from demos.gridscan.behaviours_advanced import DoMoveTankGridVisualCDROS
-
+from task_trees.scene_to_rviz import SceneToRViz
 # -------------------------------------
 # Tasks specialized for this application 
 
@@ -70,6 +71,12 @@ class GridScanTaskTreesManager(TaskTreesManager):
         # load the task scene 
         scene_config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
         self.the_scene:GridScanScene = GridScanScene(scene_config_file)
+        # setup visualization in rviz
+        self.scene_to_rviz = SceneToRViz(self.the_scene, arm_commander.get_world_reference_frame(), False)
+        self.scene_to_rviz.display_bbox_regions('regions', rgba=[1.0, 0.0, 1.0, 0.2])
+        self.scene_to_rviz.display_bbox_regions('tank.bbox', rgba=[1.0, 0.8, 0.4, 0.2])
+        self.scene_to_rviz.display_rotations('tank.rotations', arrow_length=0.5, rgba=[0.2, 0.0, 1.0, 0.8])
+        self.scene_to_rviz.display_positions('tank.positions', rgba=[1.0, 1.0, 0.0, 0.8])         
         # setup the robotic manipulation platform through the commander
         self._reset_commander()
         # setup simulation end-effector
@@ -99,7 +106,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
         self.arm_commander.set_max_cartesian_speed(0.1)
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
-        self.arm_commander.set_workspace_walls(*(self.the_scene.query_config('regions.workspace')))
+        self.arm_commander.set_workspace_walls(*(self.the_scene.query_config('regions.workspace')), rgba=[0.1, 0.1, 0.1, 0.01])
     
     # return the logical pose of the accepted task, or raise TypeError if no task is submitted
     def query_grid_position_of_task(self):
@@ -140,7 +147,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
     # return orientation constraint to fix the rotation of the end_effector during movement in the tank
     def _create_intank_fix_rotate_constraint(self) -> Constraints:
         return moveit_tools.create_path_orientation_constraint(
-            self.arm_commander.END_EFFECTOR_LINK, self.arm_commander.pose_in_frame('the_tank'), 0.05, 0.05, 6.28)
+            self.arm_commander.END_EFFECTOR_LINK, self.arm_commander.pose_in_frame('tank'), 0.05, 0.05, 6.28)
     
     # return position constraint to confine the movement in the tank
     def _create_intank_movement_constraint(self) -> Constraints:
@@ -168,18 +175,18 @@ class GridScanTaskTreesManager(TaskTreesManager):
     
     def wrong_orientation(self) -> bool:
         target_xyzrpy = self._get_task_target_xyzrpy()
-        current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='the_tank')
+        current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='tank')
         # logger.info(f'same orientation: {target_xyzrpy[3:]} {current_xyzrpy[3:]}')
         return not moveit_tools.same_rpy_with_tolerence(target_xyzrpy[3:], current_xyzrpy[3:], 0.1)
 
     def wrong_xy_at_tank(self) -> bool:
         target_xyzrpy = self._get_task_target_xyzrpy()
-        current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='the_tank')
+        current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='tank')
         # logger.info(f'wrong_xy_at_tank: target {target_xyzrpy[:2]} current {current_xyzrpy[:2]}')
         return (abs(target_xyzrpy[0] - current_xyzrpy[0]) > 0.01) or (abs(target_xyzrpy[1] - current_xyzrpy[1]) > 0.01)
     
     def at_angle(self, rotation_pose) -> bool:
-        current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='the_tank')
+        current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='tank')
         rotation_rpy = self.the_scene.query_rotation_as_rpy(rotation_pose)
         for index in range(len(rotation_rpy)):
             if rotation_rpy[index] is None:
@@ -220,7 +227,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
                 children=[   
                     DoMoveXYZ('move_up_for_calibrate', [{'_fn': self.in_a_region, 'region':'regions.work'}, 
                                                         {'_fn': self.below_z, 'position':'tank.positions.hover'}], 
-                                        arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.hover', reference_frame='the_tank', cartesian=True),
+                                        arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.hover', reference_frame='tank', cartesian=True),
                     DoMoveNamedPose('move_home_for_calibrate', True, arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'), 
                     SimCalibrate('do_calibrate', self.arm_commander, scene=self.the_scene),
                 ],
@@ -242,7 +249,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
                 children=[
                     DoMoveXYZ('move_up_if_in_water', [{'_fn': self.in_a_region, 'region': 'regions.work'}, {'_fn': self.below_z, 'position':'tank.positions.hover'}], 
                                 arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.hover',
-                                reference_frame='the_tank', cartesian=True),                    
+                                reference_frame='tank', cartesian=True),                    
                     DoMoveNamedPose('move_home_first', [{'_fn': self.in_a_region, 'region': 'regions.work'}, 
                                                         {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
                                     arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'),
@@ -267,25 +274,28 @@ class GridScanTaskTreesManager(TaskTreesManager):
                     DoMoveNamedPose('move_home_if_in_inner_region', {'_fn': self.in_a_region, 'region': 'regions.inner'},
                                     arm_commander=self.arm_commander, scene=self.the_scene, named_pose='named_poses.home'), 
                     DoMoveTankGridVisualCDROS('move_to_work_transition_pose', {'_fn': self.at_a_named_pose, 'named_pose':'named_poses.home'}, 
-                                                    arm_commander=self.arm_commander, scene=self.the_scene, grid_position=['tank.grid_positions.transition', 'tank.positions.hover']),
+                                                    arm_commander=self.arm_commander, scene=self.the_scene, grid_position=['tank.grid_positions.transition', 'tank.positions.hover'], 
+                                                    reference_frame='tank'),
                     DoMoveXYZ('move_up_if_wrong_orientation', [self.wrong_orientation, {'_fn': self.below_z, 'position':'tank.positions.hover'}], 
                               arm_commander=self.arm_commander, scene=self.the_scene, 
-                              target_xyz='tank.positions.hover', reference_frame='the_tank', constraint_fn=self._create_intank_fix_rotate_constraint),
+                              target_xyz='tank.positions.hover', reference_frame='tank', constraint_fn=self._create_intank_fix_rotate_constraint),
                     DoMoveTankGridVisualCDROS('move_transition_pose', [self.wrong_orientation, {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
-                                              arm_commander=self.arm_commander, scene=self.the_scene, grid_position='tank.grid_positions.transition', constraint_fn=self._create_intank_fix_rotate_constraint),
+                                              arm_commander=self.arm_commander, scene=self.the_scene, grid_position='tank.grid_positions.transition', constraint_fn=self._create_intank_fix_rotate_constraint,
+                                              reference_frame='tank'),
                     DoRotate('rotate_gamma_if_wrong_orientation', [self.wrong_orientation, {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
                              arm_commander=self.arm_commander, scene=self.the_scene, 
-                             target_rpy='tank.rotations.gamma', reference_frame='the_tank'),                   
+                             target_rpy='tank.rotations.gamma', reference_frame='tank'),                   
                     DoRotate('rotate_if_wrong_orientation', [self.wrong_orientation, {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
-                             arm_commander=self.arm_commander, scene=self.the_scene, target_rpy=self.query_logical_rpy_of_task, reference_frame='the_tank'),
+                             arm_commander=self.arm_commander, scene=self.the_scene, target_rpy=self.query_logical_rpy_of_task, reference_frame='tank'),
                     DoMoveTankGridVisualCDROS('move_xy_if_wrong_position', self.wrong_xy_at_tank, arm_commander=self.arm_commander, scene=self.the_scene, 
-                                              grid_position=self.query_grid_position_of_task, constraint_fn=self._create_intank_fix_rotate_constraint),
+                                              grid_position=self.query_grid_position_of_task, constraint_fn=self._create_intank_fix_rotate_constraint,
+                                              reference_frame='tank'),
                     DoRotate('set_oblique_angle', [{'_not_fn': self.at_angle, 'rotation_pose': 'tank.rotations.delta'}, {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
                              arm_commander=self.arm_commander, scene=self.the_scene, 
-                             target_rpy='tank.rotations.delta', reference_frame='the_tank'),
+                             target_rpy='tank.rotations.delta', reference_frame='tank'),
                     DoMoveXYZRPY('submerge_if_hover', [{'_fn': self.at_angle, 'rotation_pose': 'tank.rotations.delta'}, {'_fn': self.on_or_above_z, 'position':'tank.positions.hover'}], 
                                 arm_commander=self.arm_commander, scene=self.the_scene, target_xyz='tank.positions.submerged', target_rpy=self.query_logical_rpy_of_task, 
-                                reference_frame='the_tank'),                                                    
+                                reference_frame='tank'),                                                    
                     ],
             )
         )

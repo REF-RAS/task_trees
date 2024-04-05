@@ -325,20 +325,24 @@ class TaskTreesManager(BasicTaskTreesManager):
         return self.the_root
     
     def _define_named_poses(self, the_scene:Scene):
-        named_poses = the_scene.keys_config('named_poses')
+        named_poses = the_scene.keys_of_config('named_poses')
         for pose_name in named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, the_scene.query_config(pose_name))
             
-    def _define_objects(self, the_scene:Scene):
+    def _define_objects(self, the_scene:Scene, object_type=None):
+        if object_type is not None and type(object_type) is not list:
+            object_type = [object_type]
         for object_name in the_scene.list_object_names():
             the_object = the_scene.get_object_config(object_name)
+            if object_type is not None and the_object.type not in object_type:
+                continue
             if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
+                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
             elif the_object.type == 'sphere':
-                self.arm_commander.add_sphere_to_scene(object_name, the_object.dimensions, the_object.xyz)
+                self.arm_commander.add_sphere_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.frame)
             elif the_object.type == 'object':
-                self.arm_commander.add_object_to_scene(object_name, the_object.model_file, the_object.dimensions, the_object.xyz, the_object.rpy)
+                self.arm_commander.add_object_to_scene(object_name, the_object.model_file, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
             else:
                 logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_object.type}"')
         

@@ -24,7 +24,7 @@ from task_trees.behaviours_base import SimAttachObject, SimDetachObject, PrintPo
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoMoveXYZRPY, DoRotate
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
-
+from task_trees.scene_to_rviz import SceneToRViz
 # -------------------------------------
 # Tasks specialized for the Pick-n-Drop 
 
@@ -79,6 +79,12 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         # load the task scene
         config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
         self.the_scene = Scene(config_file)
+        # setup visualization in rviz
+        self.scene_to_rviz = SceneToRViz(self.the_scene, arm_commander.get_world_reference_frame(), False)
+        self.scene_to_rviz.display_bbox_regions('regions', rgba=[1.0, 0.0, 1.0, 0.2])
+        object_area1 = self.the_scene.get_object_config('area_1')
+        self.scene_to_rviz.add_custom_transform('area', object_area1.xyz, object_area1.rpy, object_area1.frame)
+        self.scene_to_rviz.display_positions('area.positions', rgba=[1.0, 1.0, 0.0, 0.8])    
         # setup the robotic manipulation platform through the commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
@@ -101,10 +107,11 @@ class PushBlockTaskTreesManager(TaskTreesManager):
     # Functions for the simulation (demo)
     def setup_objects(self):
         # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
+        # for object_name in self.the_scene.list_object_names():
+        #     the_object = self.the_scene.get_object_config(object_name)
+        #     if the_object.type == 'box':
+        #         self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
+        self._define_objects(self.the_scene, 'box')
 
     def generate_the_object(self):
         self.the_object = dict()
@@ -115,7 +122,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         xyzrpy = the_block_config['xyz'] + the_block_config['rpy']
         the_pose = moveit_tools.xyzrpy_to_pose_stamped(xyzrpy, self.the_object['area'])
         the_pose = self.arm_commander.transform_pose(the_pose, self.arm_commander.WORLD_REFERENCE_LINK)
-        xyzrpy_in_world = moveit_tools.pose_stamped_to_xyzrpy(the_pose)
+        xyzrpy_in_world = moveit_tools.pose_to_xyzrpy(the_pose.pose)
         self.arm_commander.add_box_to_scene('the_object', the_block_config['dimensions'], xyzrpy_in_world[:3], xyzrpy_in_world[3:])
         
     # -----------------------------------------

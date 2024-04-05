@@ -11,7 +11,7 @@ __version__ = '1.0'
 __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
-import random, sys, signal
+import random, sys, signal, time
 import py_trees
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
@@ -89,7 +89,7 @@ class PushBlockDemoApplication():
                     target = input('Enter the area (1, 2, 3, 4), go home (H), or run random demo (R): ')
                     if target in ['1', '2', '3', '4', 'H', 'R']:
                         break
-                    rospy.sleep(0.1)
+                    time.sleep(0.1)
                 if target == 'R':
                     is_random = True
                 if target == 'H':

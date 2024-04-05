@@ -6,8 +6,6 @@ scene:
   regions:
     workspace: [-0.5, -0.75, -0.1, 1.0, 0.5, 1.0]  # min_x, min_y, min_z, max_x, max_y, max_z
     inner: [-0.5, -0.75, 0.30, 0.5]  # min_x, min_y, max_x, max_y
-  positions:
-    drop: [0.5, 0.3, 0.4]
   rotations:
     # alpha: [3.14, null, 0.78] 
     # beta: [3.14, null, -0.78]
@@ -71,8 +69,7 @@ scene:
       model_file: null
       dimensions: [0.1, 0.1, 0.25]
       xyz: [0.50, 0.0, 0.125]
-      rpy: [0, 0, 0]   
-      
+      rpy: [0, 0, 0]         
 subscenes:
   area:
     positions:

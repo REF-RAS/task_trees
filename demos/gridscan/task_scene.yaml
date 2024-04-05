@@ -9,18 +9,20 @@ scene:
     work: [-1.2, -0.6, 1.2, -0.3]  # min_x, min_y, max_x, max_y
     work3d: [-1.2, -0.6, 0.15, 1.2, -0.3, 0.6]  # min_x, min_y, min_z, max_x, max_y, max_z
   objects:
-    - name: the_tank
+    - name: tank
       type: box
       model_file: null
       dimensions: [0.4, 1.8, 0.10]
       xyz: [0.0, -0.5, 0.05]
       rpy: [0, 0, 1.57]
+      frame: null
     - name: side_1
       type: box
       model_file: null
       dimensions: [0.005, 1.8, 0.20]
       xyz: [0.0, -0.3, 0.10]
       rpy: [0, 0, 1.57]
+      frame: null
     - name: side_2
       type: box
       model_file: null
@@ -42,7 +44,7 @@ scene:
 
 subscenes:
   tank:
-    bbox: [0, 0, 0.4, 1.8]  # min_x, min_y, max_x, max_y
+    bbox: [-0.2, -0.9, 0.2, 0.9]  # min_x, min_y, max_x, max_y
     positions:
       default: [null, null, 0.35]
       hover: [null, null, 0.35]

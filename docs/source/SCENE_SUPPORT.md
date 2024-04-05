@@ -58,12 +58,14 @@ scene:
       dimensions: [0.2, 0.2, 0.01]
       xyz: [0.4, 0.20, 0.00]
       rpy: [0, 0, 3.14]
+      frame: null
     - name: area_2
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
       xyz: [0.4, -0.20, 0.00]
       rpy: [0, 0, 3.14]
+      frame: area_1
 subscenes:
 ```
 The scene configuration file below defines one subscene called 'area', in which several configuration keys are defined.
@@ -88,6 +90,7 @@ The collision object definition comprises the following mandatory keys:
 - `dimensions`: a list of length, width, and height for a `box`, the radius for a `sphere`, and the scaling factor as a list of 3 numbers for an `object`.
 - `xyz`: the position of the object
 - `rpy`: the orientation of the object  
+- `frame`: the reference frame against which the object pose is measured, where null implies the world frame
 
 Every collision object will project its position and rotation as its own custom reference frames.
 
@@ -103,13 +106,13 @@ from task_trees.task_scene import Scene
 ```
 The `Scene` class gives every configuration key a unique reference. The reference is a dot-separated string made up of the scene namespace followed by keys of the ancestors of a key-value configuration. For example, the reference `named_poses.home` refers to the `home` child of the `named_poses` node under the root scene (therefore the empty namespace). A configuration key under a subscene has a prepended namespace. For example, `area.positions.start` refers to the value `[0, 0.11, null]` in the above example.
 
-The following code snippet demonstrates the functions `keys_config` and `query_config` for listing the children keys and querying for the value of a configuration reference.
+The following code snippet demonstrates the functions `keys_of_config` and `query_config` for listing the children keys and querying for the value of a configuration reference.
 
 ```
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene.yaml'))
 
         # setup name poses
-        self.named_poses = self.the_scene.keys_config('named_poses')
+        self.named_poses = self.the_scene.keys_of_config('named_poses')
         for pose_name in self.named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
@@ -170,8 +173,8 @@ The functions provided by the `Scene` class are listed below.
 | `get_scene_config(self)` | Return the root scene config in the config file as a dict |
 | `get_subscene_config(self, name)`| Return the config of a subscene as a dict |   
 | `exists_config(self, name:str)` | Return True if the configuration name exists |
-| `keys_config(self, name:str)` | Return the children of a configuration reference as a list of keys |  
-| `len_config(self, name:str)` | Return the number of children of a configuration reference |
+| `keys_of_config(self, name:str)` | Return the children of a configuration reference as a list of keys |  
+| `len_of_list_config(self, name:str)` | Return the number of children of a list typed configuration reference |
 | `list_object_names(self)` | Return the names of the defined objects as a list |
 | `get_object_config(self, object_name: str)` | Return the configuration of an object given its name |
 

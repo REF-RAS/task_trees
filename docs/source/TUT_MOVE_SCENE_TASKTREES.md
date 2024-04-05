@@ -30,10 +30,7 @@ class SimpleMoveApplication(TaskTreesManager):
         
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene.yaml'))
         # setup name poses
-        self.named_poses = self.the_scene.keys_config('named_poses')
-        for pose_name in self.named_poses:
-            pose_name = 'named_poses.' + pose_name
-            self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
+        self._define_named_poses(self.the_scene)
 
         # build and install the behavior tree
         self._add_priority_branch(self.create_move_branch())

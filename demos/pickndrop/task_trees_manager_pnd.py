@@ -22,6 +22,7 @@ from task_trees.behaviours_base import SimAttachObject, SimDetachObject
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
+from task_trees.scene_to_rviz import SceneToRViz
 
 from demos.pickndrop.behaviours_pnd import DoScanProgram
 from scan_model import SingleLineScanModel, SteppingScanModel, FourCornersScanModel
@@ -80,6 +81,12 @@ class PNDTaskTreesManager(TaskTreesManager):
         # load the task scene
         config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
         self.the_scene = Scene(config_file)
+        # setup visualization in rviz
+        self.scene_to_rviz = SceneToRViz(self.the_scene, arm_commander.get_world_reference_frame(), False)
+        self.scene_to_rviz.display_bbox_regions('regions', rgba=[1.0, 0.0, 1.0, 0.2])
+        self.scene_to_rviz.display_positions('positions', rgba=[1.0, 0.8, 0.4, 0.2])
+        self.scene_to_rviz.display_positions('the_table.positions', rgba=[1.0, 1.0, 0.0, 0.8])  
+        self.scene_to_rviz.display_bbox_regions('the_table.regions', rgba=[1.0, 0.0, 1.0, 0.2])        
         # setup the robotic manipulation platform through the commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()

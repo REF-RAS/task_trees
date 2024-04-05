@@ -52,8 +52,8 @@ class SimCalibrate(Behaviour):
         for object_name in self.the_scene.list_object_names():
             the_object = self.the_scene.get_object_config(object_name)
             if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)  
-            if the_object.name == 'the_tank':
+                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)  
+            if the_object.name == 'tank':
                 self.the_blackboard.set('tank', the_object)
         self.the_blackboard.task.result = '12'
         return Status.SUCCESS
@@ -63,7 +63,7 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
         The roll and pitch components of the orientation of the end-effector is fixed.
     """
     def __init__(self, name, condition_fn=True, condition_policy=None, arm_commander=None, 
-                scene:GridScanScene=None, grid_position=None, constraint_fn=None):
+                scene:GridScanScene=None, grid_position=None, constraint_fn=None, reference_frame=None):
         """ the constructor, refers to the constructor ConditionalCommanderBehaviour for the description of the other parameters
         :param the_scene: the scene model for the handling of logical positions specified in the target xyz
         :type the_scene: Scene
@@ -73,7 +73,7 @@ class DoMoveTankGrid(SceneConditionalCommanderBehaviour):
         :type reference_frame: a string representing the reference_frame      
         """
         super(DoMoveTankGrid, self).__init__(name=name, condition_fn=condition_fn, condition_policy=condition_policy, arm_commander=arm_commander, scene=scene, 
-                                             reference_frame='the_tank')
+                                             reference_frame=reference_frame)
         if grid_position is None:
             logger.error(f'{__class__.__name__} ({self.name}): parameter (physical_xyz) is None -> fix the missing value')
             raise AssertionError(f'A parameter should not be None nor missing')
