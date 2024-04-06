@@ -13,6 +13,9 @@ import logging, time
 
 # -- The custom logger for the task trees package
 class CustomFormatter(logging.Formatter):
+    """ The custom logger class for the package
+    :meta private:
+    """
     grey = '\x1b[38;20m'
     cyan ='\x1b[36;20m'
     yellow = '\x1b[33;20m'

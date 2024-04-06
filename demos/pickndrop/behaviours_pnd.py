@@ -11,9 +11,9 @@ __status__ = 'Development'
 
 from py_trees.common import Status
 # robot control module
-import arm_commander.moveit_tools as moveit_tools
+import arm_commander.tools.moveit_tools as moveit_tools
 from task_trees.behaviours_base import ConditionalBehaviour, ConditionalCommanderBehaviour
-from task_trees.tools import logger
+from tools.logging_tools import logger
 from scan_model import ScanRegionModel
 
 # ----------------------------------------------------------------------

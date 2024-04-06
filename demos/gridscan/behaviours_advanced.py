@@ -10,14 +10,12 @@ __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
 import operator, yaml, os, math, random, copy, sys, signal, threading
-from collections import namedtuple, defaultdict
 import rospy
 from std_msgs.msg import Float32
 from py_trees.common import Status
 # robot control module
-from task_trees.behaviours_base import ConditionalBehaviour
 from task_scene_gridscan import GridScanScene
-from task_trees.tools import logger
+from tools.logging_tools import logger
 from demos.gridscan.behaviours_gridscan import DoMoveTankGrid
 
 # -----------------------------------------------------------------------------------------------------

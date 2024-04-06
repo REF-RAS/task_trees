@@ -10,15 +10,16 @@ __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
 import yaml, os, time
+from collections import defaultdict
 import rospy, tf
 from geometry_msgs.msg import Pose, PoseStamped
 from visualization_msgs.msg import Marker
 
-from arm_commander.moveit_tools import create_pose, pose_to_xyzrpy
-from task_trees.tools import logger
 from task_trees.task_scene import Scene, ObjectConfig
-import task_trees.rviz_tools as rviz_tools
-from task_trees.rviz_tools import RvizVisualizer
+import tools.rviz_tools as rviz_tools
+from tools.logging_tools import logger
+from tools.rviz_tools import RvizVisualizer
+from tools.pose_tools import pose_to_xyzq, list_to_xyzq
 
 class SceneToRViz(RvizVisualizer):
     """ The helper class for managing visualization of scene configs in rviz
@@ -46,7 +47,7 @@ class SceneToRViz(RvizVisualizer):
             self.is_world_publisher = True
             logger.warning(f'SceneToRViz: no base_frame given, use default base frame "world"')
         # setup custom transforms
-        self.custom_transform_object = []  
+        self.custom_transform_object_dict = defaultdict(lambda: None)
         # setup timer
         self.timer_transform = rospy.Timer(rospy.Duration(0.1), self._cb_timer_transform)
     
@@ -68,29 +69,26 @@ class SceneToRViz(RvizVisualizer):
                 
     # internal function: publish the transform of custom objects
     def _pub_custom_transform(self):
-        for the_object in self.custom_transform_object:
+        for the_object in self.custom_transform_object_dict.values():
             xyzrpy = the_object.xyz + the_object.rpy
-            logger.warning(f'_pub_custom_transform: {the_object.name}')
             self._pub_transform_object(the_object.name, xyzrpy, the_object.frame)
 
     # internal function: publish the transform of a specific named object
     def _pub_transform_object(self, name, pose, frame=None):
-        # frame is ignored if pose is PoseStamped
-        if type(pose) == Pose:
-            pose = pose_to_xyzrpy(pose)
-        elif type(pose) == PoseStamped:
-            frame = pose.header.frame_id            
-            pose = pose_to_xyzrpy(pose.pose)
-        xyz = pose[:3]
-        if type(pose) not in [list, tuple]:
+        try:
+            # frame is ignored if pose is PoseStamped
+            if type(pose) == Pose:
+                xyzq = pose_to_xyzq(pose)
+            elif type(pose) == PoseStamped:
+                frame = pose.header.frame_id            
+                xyzq = pose_to_xyzq(pose.pose)
+            else:
+                xyzq = list_to_xyzq(pose)
+        except Exception:
             logger.error(f'{__class__.__name__}: parameter (pose) is not list of length 6 or 7 or a Pose object -> fix the parameter at behaviour construction')
-            raise TypeError(f'A parameter is invalid')  
-        if len(pose) == 6:
-            q = tf.transformations.quaternion_from_euler(*pose[3:])
-        elif len(pose) == 7:
-            q = pose[3:]
+            raise
         frame = self.base_frame if frame is None else frame
-        self.tf_pub.sendTransform(xyz, q, rospy.Time.now(), name, frame)
+        self.tf_pub.sendTransform(xyzq[:3], xyzq[3:], rospy.Time.now(), name, frame)
 
     # --------------------------------
     def set_publish_objects_transform(self, object_names:list=None):
@@ -222,11 +220,45 @@ class SceneToRViz(RvizVisualizer):
     # Functions for adding custom transforms for visualization
     # This class does not validate if the transform is published elsewhere
     
-    def add_custom_transform(self, name, xyz, rpy, frame=None) -> None:
-        self.custom_transform_object.append(ObjectConfig(name, None, None, None, xyz, rpy, frame))
-    
-    def clear_all_custom_transform(self):
-        self.custom_transform_object.clear()
+    def add_custom_transform(self, name, xyz, rpy, frame) -> None:
+        """ Add a custom transform to the rviz visualizer, which is broadcast regularly
+
+        :param name: the name of the transform
+        :param xyz: the xyz pose
+        :param rpy: the rpy pose
+        :param frame: the reference frame
+        """
+        if name is None or xyz is None or rpy is None or frame is None:
+            logger.error(f'SceneToRViz (add_custom_transform): No parameter can be None')
+            raise AssertionError('A parameter is none')
+        self.custom_transform_object_dict[name] = ObjectConfig(name, None, None, None, xyz, rpy, frame)
+
+    def update_custom_transform_pose(self, name, xyz=None, rpy=None, frame=None) -> None:
+        """ Update the pose of a custom transform
+
+        :param name: the name of the transform to be updated
+        :param xyz: the updated xyz, defaults to None meaning unchanged
+        :param rpy: the updated rpy, defaults to None meaning unchanged
+        :param frame: the updated frame, defaults to None meaning unchanged
+        """
+        the_object:ObjectConfig = self.custom_transform_object_dict[name]
+        if the_object is None:
+            logger.warning(f'__name__ (update_custom_transform_pose): the custom transform name {name} is not found')
+            return False
+        xyz = xyz if xyz is not None else the_object.xyz
+        rpy = rpy if rpy is not None else the_object.rpy
+        frame = frame if xyz is not None else the_object.frame
+        self.add_custom_transform(name, xyz, rpy, frame)
+
+    def remove_custom_transform(self, name=None):
+        """ Clear a custom transform or all if name is None
+
+        :param name: the name of the transform to be removed, or None to remove all
+        """
+        if name is None:
+            self.custom_transform_object_dict.clear()
+        elif name in self.custom_transform_object_dict:
+            del self.custom_transform_object_dict[name]
     
 # -----------------------------------------------------------
 # test program

@@ -4,7 +4,7 @@ This tutorials illustrates how to use scene configuration to enrich the target p
 
 This demo requires the Panda robot model.
 
-[Source Code](../../demos/simple_moves_scene/move_scene_1.py)
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/simple_moves_scene)
 
 ## Running the Demo Program
 

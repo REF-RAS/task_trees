@@ -16,7 +16,7 @@ from py_trees.common import Status
 # robot control module
 from task_trees.behaviours_move import SceneConditionalCommanderBehaviour
 from task_scene_gridscan import GridScanScene
-from task_trees.tools import logger
+from tools.logging_tools import logger
 
 # ----------------------------------------------------------------------
 # Custom Behaviour Classes

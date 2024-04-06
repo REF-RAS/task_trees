@@ -4,7 +4,7 @@ This tutorials illustrates examples of using the move behaviour classes for buil
 
 This demo requires the Panda robot model.
 
-[Source Code](../../demos/pytrees_moves/simple_move_1.py)
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/pytrees_moves)
 
 ## Running the Demo Program
 

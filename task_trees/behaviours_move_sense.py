@@ -15,7 +15,7 @@ from std_msgs.msg import Bool
 # robot control module
 from task_trees.behaviours_base import ConditionalBehaviour
 from task_trees.behaviours_move import DoMoveXYZ
-from task_trees.tools import logger
+from tools.logging_tools import logger
 # -----------------------------------------------------------------------------------------------------
 # Advanced behaviours for illustrating the use of a ROS message topic to alert an imminent risk, such
 # as collision, and to abort the move behaviour

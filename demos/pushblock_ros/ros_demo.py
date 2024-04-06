@@ -15,7 +15,7 @@ import random, sys, signal, time
 import rospy, actionlib
 from actionlib_msgs.msg import GoalStatus
 from task_trees.msg import TaskAction, TaskGoal, TaskFeedback, TaskResult
-from task_trees.tools import logger
+from tools.logging_tools import logger
 
 # -- Test cases specialized for the Push Block Demo
 class PushBlockROSClientDemo():

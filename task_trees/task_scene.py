@@ -11,7 +11,7 @@ __status__ = 'Development'
 
 import yaml, os, numbers
 from collections import namedtuple, defaultdict
-from task_trees.tools import logger
+from tools.logging_tools import logger
 
 # namedtuples for internal data structure for higher readability
 ObjectConfig = namedtuple('ObjectConfig', ['name', 'type', 'model_file', 'dimensions', 'xyz', 'rpy', 'frame']) # representing an object
@@ -195,7 +195,7 @@ class Scene():
 
     # list the object names
     def list_object_names(self) -> list:
-        """ 
+        """ return the list of objects defined in the scene configuration
         :return: a list of object names as strings
         :rtype: list
         """
@@ -212,6 +212,19 @@ class Scene():
         :rtype: ObjectConfig
         """
         return self.objects_map.get(object_name)
+    
+    # return the named poses as a dict
+    def get_named_poses_as_dict(self) -> dict:
+        """ return the named poses defined in the scene configuration as a dict
+
+        :return: dict containing key value pairs of named poses
+        """
+        result = dict()
+        named_poses = self.query_config('named_poses')
+        for pose_name in named_poses:
+            pose_name = 'named_poses.' + pose_name
+            result[pose_name] = self.query_config(pose_name)
+        return result
 
 # -----------------------------------------------------------
 # test program

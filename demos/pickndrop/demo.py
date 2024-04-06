@@ -18,7 +18,7 @@ import py_trees
 from arm_commander.commander_moveit import GeneralCommander
 from task_trees_manager_pnd import PNDTaskTreesManager, ScanTask, PickUpObjectTask, DropObjectTask
 from task_trees.states import TaskStates
-from task_trees.tools import logger
+from tools.logging_tools import logger
 # -- Test cases specialized for the PickNDrop Demo
 
 class DemoStates(Enum):

@@ -29,6 +29,7 @@ The Task Trees Framework
    TUT_TASK_MOVE_TASKTREES.md 
    AKNOWLEDGEMENT.md
    task_trees_modules.rst
+   tools_modules.rst
 
 Indices and tables
 ===================

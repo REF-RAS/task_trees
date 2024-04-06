@@ -17,11 +17,12 @@ from py_trees.trees import BehaviourTree
 
 from task_trees.behaviours_base import *
 from task_trees.states import TaskStates, COMPLETION_STATES
-from task_trees.tools import logger
+from tools.logging_tools import logger
 
 # -- The abstract class for implementing project specific Task for the TaskTreesManager
 class BasicTask():
-    """ It defines the essential parameters for the lifecycle management by the TaskTreesManager 
+    """ It defines the essential parameters for the lifecycle management by the TaskTreesManager
+    :meta private: 
     """
     def __init__(self, goal_as_logical_pose=None):
         
@@ -294,10 +295,15 @@ class TaskTreesManager(BasicTaskTreesManager):
 
     # shutdown the task trees manager
     def shutdown(self):
+        """ Shutdown the task trees manager, including the behaviour tree and then terminate the program
+        """
         self.arm_commander.abort_move(wait=True)
         super().shutdown()
 
     def _build_tree_skeleton(self):
+        """ Internal function for building the skeleton for this tree manager
+        :meta private:
+        """
         self.do_task_selector = py_trees.composites.Selector('do_tasks_selector_branch', memory=True, children=[
                 Print(f'One of the behaviours in the do_work_branch FAILED', print_tree=False),
                 HandleTaskFailure('handle_task_failure', self.arm_commander),
@@ -325,12 +331,20 @@ class TaskTreesManager(BasicTaskTreesManager):
         return self.the_root
     
     def _define_named_poses(self, the_scene:Scene):
-        named_poses = the_scene.keys_of_config('named_poses')
-        for pose_name in named_poses:
-            pose_name = 'named_poses.' + pose_name
-            self.arm_commander.add_named_pose(pose_name, the_scene.query_config(pose_name))
+        """ Define the named poses in the arm commander as specified in the scene configuration file under the key'named_poses'
+
+        :param the_scene: the scene configuration object of the Scene class
+        """
+        named_poses = the_scene.get_named_poses_as_dict()
+        for name in named_poses:
+            self.arm_commander.add_named_pose(name, named_poses[name])
             
     def _define_objects(self, the_scene:Scene, object_type=None):
+        """ Define the collision objects in the arm commander as specified in the scene configuration file
+
+        :param the_scene: _description_
+        :param object_type: _description_, defaults to None
+        """
         if object_type is not None and type(object_type) is not list:
             object_type = [object_type]
         for object_name in the_scene.list_object_names():
@@ -347,6 +361,10 @@ class TaskTreesManager(BasicTaskTreesManager):
                 logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_object.type}"')
         
     def _set_initialize_branch(self, branch:Composite):
+        """ Set or replace a branch to be the initialization branch of the behaviour tree of this manager
+
+        :param branch: a branch type Composite of behaviour tree nodes
+        """
         if self.num_initialize_branch > 0:
             logger.error(f'{__class__.__name__} (_set_initialize_branch): cannot set initialization branch more than once-> fix the subclass and avoid calling the function more then once')
             raise AssertionError(f'A parameter should not be None nor missing')  
@@ -355,11 +373,20 @@ class TaskTreesManager(BasicTaskTreesManager):
         self.num_initialize_branch = 1
         
     def _add_priority_branch(self, branch:Composite):
+        """ Add a branch to be a priority branch of the behaviour tree of this manager, the priority of this branch is lower than the previous ones
+
+        :param branch: a branch type Composite of behaviour tree nodes
+        """
         index = self.num_initialize_branch + self.num_priority_branch
         self.root_sequence.insert_child(branch, index)
         self.num_priority_branch += 1
     
-    def _add_task_branch(self, branch:Composite, task_class:type=None):
+    def _add_task_branch(self, branch:Composite, task_class:type):
+        """ Add a branch to be a task branch of the behaviour tree of this manager
+
+        :param branch: a branch type Composite of behaviour tree nodes
+        :param task_class: the task class, which is a subclass of BasicTask, that is associated with the branch.
+        """
         if task_class is None:
             logger.warning(f'TaskTreesManager (_add_task_branch): task_class is None -> task decorations are assumed to be included in the parameter branch or provide the task_class at the function call')
             task_branch = branch
@@ -384,10 +411,14 @@ class TaskTreesManager(BasicTaskTreesManager):
         self.do_task_selector.insert_child(task_branch, num_children - 2)  
 
     def display_tree(self, branch=None, target_directory=None):
+        """ Save a graphical representation of the given branch of a behaviour tree to the target directory
+
+        :param branch: the branch to be drawn, defaults to None which means the whole behaviour tree
+        :param target_directory: the output directory, defaults to None
+        """
         branch = self.bt.root if branch is None else branch
         if branch is None:
             return
-        logger.info(f'display tree {branch} {target_directory}')
         py_trees.display.render_dot_tree(branch, target_directory=target_directory)
 
 
@@ -432,7 +463,6 @@ class GuardedTaskTreesManager(TaskTreesManager):
                 self.the_blackboard.unset('task')  
         
     # internal function: the condition function for the eternal guards
-    
     # return True if no alert should be made 
     def _get_global_guard_condition(self):
         #if self.custom_global_guard_condition_fn is not None:
@@ -445,24 +475,39 @@ class GuardedTaskTreesManager(TaskTreesManager):
 
     # setting the guard conditions
     def set_global_guard_condition_fn(self, global_guard_condition_fn):
+        """ Set the function that returns the global guard condition
+
+        :param global_guard_condition_fn: a function definition that returns a bool
+        """
         if global_guard_condition_fn is not None and not hasattr(global_guard_condition_fn, '__call__'):
             raise AssertionError(f'GuardedTaskTreesManager: The parameter root_guard_condition is not a function')
         self.custom_global_guard_condition_fn = global_guard_condition_fn
 
     def set_task_guard_condition_fn(self, task_guard_condition_fn):
+        """ Set the function that returns the task subtree guard condition
+
+        :param task_guard_condition_fn: a function definition that returns a bool
+        """
         if task_guard_condition_fn is not None and not hasattr(task_guard_condition_fn, '__call__'):
             raise AssertionError(f'GuardedTaskTreesManager: The parameter task_guard_condition is not a function')
         self.custom_task_guard_condition_fn = task_guard_condition_fn       
     
     # override the submit_task method
     def submit_task(self, the_task:BasicTask) -> bool:
+        """ Submit a task to the task trees manager for execution
+
+        :param the_task: the task to be execution
+        :return: True if the submission is accepted
+        """
         if self.global_guard_activated or self.task_guard_activated:
             logger.error(f'GuardedTaskTreesManager: submit a new task when the Guard is still activated -> call reset_guard before submitting tasks')            
-            return None
+            return False
         return BasicTaskTreesManager.submit_task(self, the_task)
     
     # reset the guard activation
     def reset_guard(self):
+        """ Reset the guard that has been switched on
+        """
         if (self.custom_global_guard_condition_fn is not None and self.custom_global_guard_condition_fn() == False) or \
             (self.custom_task_guard_condition_fn is not None and self.custom_task_guard_condition_fn() == False):
             logger.warning(f'{__class__.__name__} (reset_guard): Unable to reset guard activation status because the guard condition is still False')
@@ -471,12 +516,17 @@ class GuardedTaskTreesManager(TaskTreesManager):
     
     # querying the global guard activation
     def is_global_guard_activated(self):
+        """ Returns True if the global guard has been activated
+        """
         return self.global_guard_activated
     
     # querying the task guard activation    
     def is_task_guard_activated(self):
+        """ Returns True if the task subtree guard has been activated
+        """
         return self.task_guard_activated
 
+    # internal function for building the tree skeleton
     def _build_tree_skeleton(self):
         self.do_task_selector = py_trees.composites.Selector('do_tasks_selector_branch', memory=True, children=[
                 Print(f'One of the behaviours in the do_work_branch FAILED', print_tree=False),

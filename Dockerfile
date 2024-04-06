@@ -73,6 +73,9 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
     cd ${ARM_WS} && \
     catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3
 
+# install tk
+sudo apt-get install -y python3-tk
+
 # set locales
 RUN sudo locale-gen en_US.UTF-8  
 RUN sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8

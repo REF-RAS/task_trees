@@ -4,7 +4,7 @@ This tutorials illustrates how to define tasks for the task tree manager, and to
 
 This demo requires the Panda robot model.
 
-[Source Code](../../demos/task_moves/task_move_1.py)
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/task_moves)
 
 ## Running the Demo Program
 

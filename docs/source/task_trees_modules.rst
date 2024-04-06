@@ -1,12 +1,10 @@
 Task Trees API Reference
 ===============================================
 
-The API reference is currently incomplete.
+task\_trees.task\_trees\_manager module
+-----------------------------------------
 
-task\_trees.behaviours\_base module
----------------------------------------
-
-.. automodule:: task_trees.behaviours_base
+.. automodule:: task_trees.task_trees_manager
     :members:
     :undoc-members:
     :show-inheritance:
@@ -27,10 +25,26 @@ task\_trees.behaviours\_move\_sense module
     :undoc-members:
     :show-inheritance:
 
+task\_trees.behaviours\_base module
+---------------------------------------
+
+.. automodule:: task_trees.behaviours_base
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 task\_trees.task\_scene module
 ---------------------------------------
 
 .. automodule:: task_trees.task_scene
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+task\_trees.scene\_to\_rviz module
+---------------------------------------
+
+.. automodule:: task_trees.scene_to_rviz
     :members:
     :undoc-members:
     :show-inheritance:

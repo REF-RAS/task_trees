@@ -18,7 +18,7 @@ from py_trees.composites import Sequence, Parallel, Composite, Selector
 
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
-import arm_commander.moveit_tools as moveit_tools
+import tools.pose_tools as pose_tools
 
 from task_trees.behaviours_base import SimAttachObject, SimDetachObject
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ
@@ -205,7 +205,7 @@ class PNDTaskTreesManager(GuardedTaskTreesManager):
 
     def in_a_region(self, logical_region) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, 
+        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, 
                                     self.the_scene.query_config(logical_region)) 
     
     def over_the_table(self) -> bool:
@@ -213,11 +213,11 @@ class PNDTaskTreesManager(GuardedTaskTreesManager):
         the_table_position_as_bbox = [the_table.xyz[0] - the_table.dimensions[0] / 2, the_table.xyz[1] - the_table.dimensions[1] / 2,
                                     the_table.xyz[0] + the_table.dimensions[0] / 2, the_table.xyz[1] + the_table.dimensions[1] / 2]
         current_pose = self.arm_commander.pose_of_robot_link()
-        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_table_position_as_bbox)         
+        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_table_position_as_bbox)         
             
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
-        result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
+        result = pose_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
         # logger.info(f'at {named_pose} pose: {result}')
         return result    
     

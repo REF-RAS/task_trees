@@ -17,16 +17,17 @@ import py_trees
 from py_trees.composites import Sequence, Parallel, Composite, Selector
 from moveit_msgs.msg import Constraints
 # robot control module
-import arm_commander.moveit_tools as moveit_tools
+import arm_commander.tools.moveit_tools as moveit_tools
 from task_scene_gridscan import GridScanScene
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate, DoMoveXYZRPY
 from task_trees.behaviours_base import *
 from task_trees.task_trees_manager import BasicTaskTreesManager, TaskTreesManager, BasicTask, TaskStates
 from task_trees.scene_to_rviz import SceneToRViz
-from task_trees.tools import logger
 from demos.gridscan.behaviours_gridscan import SimCalibrate, DoMoveTankGrid
 from demos.gridscan.behaviours_advanced import DoMoveTankGridVisualCDROS
-from task_trees.scene_to_rviz import SceneToRViz
+
+from tools.logging_tools import logger
+import tools.pose_tools as pose_tools
 # -------------------------------------
 # Tasks specialized for this application 
 
@@ -162,7 +163,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
 
     def in_a_region(self, region) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, 
+        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, 
                                     self.the_scene.query_config(region))  
     
     def on_or_above_z(self, position) -> bool:
@@ -177,7 +178,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
         target_xyzrpy = self._get_task_target_xyzrpy()
         current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='tank')
         # logger.info(f'same orientation: {target_xyzrpy[3:]} {current_xyzrpy[3:]}')
-        return not moveit_tools.same_rpy_with_tolerence(target_xyzrpy[3:], current_xyzrpy[3:], 0.1)
+        return not pose_tools.same_rpy_with_tolerence(target_xyzrpy[3:], current_xyzrpy[3:], 0.1)
 
     def wrong_xy_at_tank(self) -> bool:
         target_xyzrpy = self._get_task_target_xyzrpy()
@@ -197,7 +198,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
     
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
-        result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
+        result = pose_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
         # logger.info(f'at_home_pose: {result}')
         return result    
     

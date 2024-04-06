@@ -20,7 +20,7 @@ from py_trees.common import Status
 from arm_commander.commander_moveit import GeneralCommander, GeneralCommanderStates
 from task_trees.states import TaskStates
 from task_trees.task_scene import Scene
-from task_trees.tools import logger
+from tools.logging_tools import logger
 # -----------------------------------------------------------------
 # The base behaviours as an extension to PyTrees for working
 # with other components in a robot arm manipulation application
@@ -142,10 +142,10 @@ class ConditionalBehaviour(Behaviour):
     def update(self) -> Status:
         """ Specialized update function for ConditionalBehaviour. Maybe overrided by subclasses and in such case checks the condition
             using the function _is_condition_satisfied()
+            
         :return: the new PyTrees status
         :rtype: Status
         """
-
         need_to_run_behaviour = self._is_condition_satified()
         if need_to_run_behaviour:
             return self.update_if_true()

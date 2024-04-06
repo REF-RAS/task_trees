@@ -6,7 +6,7 @@ The task trees framework reduces the complexity in building behaviour trees by p
 
 This demo requires the Panda robot model.
 
-[Source Code](../../demos/simple_moves/simple_move_1.py)
+[Source Code](https://github.com/REF-RAS/task_trees/tree/main/demos/simple_moves)
 
 ## Running the Demo Program
 

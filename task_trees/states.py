@@ -13,6 +13,8 @@ from enum import Enum
 
 # the states defined for the Task Trees Manager
 class TaskStates(Enum):
+    """ The class that defines the states for the task trees manager
+    """
     INVALID = -1
     STANDBY = 0
     SUBMITTED = 1

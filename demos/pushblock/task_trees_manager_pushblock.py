@@ -17,7 +17,7 @@ from py_trees.composites import Sequence, Parallel, Composite, Selector
 
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
-import arm_commander.moveit_tools as moveit_tools
+import arm_commander.tools.moveit_tools as moveit_tools
 
 from task_trees.states import TaskStates
 from task_trees.behaviours_base import SimAttachObject, SimDetachObject, PrintPosesInFrame, PrintPose
@@ -25,6 +25,7 @@ from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoMoveXYZRPY,
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
 from task_trees.scene_to_rviz import SceneToRViz
+import tools.pose_tools as pose_tools
 # -------------------------------------
 # Tasks specialized for the Pick-n-Drop 
 
@@ -83,7 +84,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         self.scene_to_rviz = SceneToRViz(self.the_scene, arm_commander.get_world_reference_frame(), False)
         self.scene_to_rviz.display_bbox_regions('regions', rgba=[1.0, 0.0, 1.0, 0.2])
         object_area1 = self.the_scene.get_object_config('area_1')
-        self.scene_to_rviz.add_custom_transform('area', object_area1.xyz, object_area1.rpy, object_area1.frame)
+        self.scene_to_rviz.add_custom_transform('area', object_area1.xyz, object_area1.rpy, arm_commander.get_world_reference_frame())
         self.scene_to_rviz.display_positions('area.positions', rgba=[1.0, 1.0, 0.0, 0.8])    
         # setup the robotic manipulation platform through the commander
         self.arm_commander.abort_move(wait=True)
@@ -120,9 +121,9 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         self.the_object['area'] = 'area_1'
         # transform the pose
         xyzrpy = the_block_config['xyz'] + the_block_config['rpy']
-        the_pose = moveit_tools.xyzrpy_to_pose_stamped(xyzrpy, self.the_object['area'])
+        the_pose = pose_tools.list_to_pose_stamped(xyzrpy, self.the_object['area'])
         the_pose = self.arm_commander.transform_pose(the_pose, self.arm_commander.WORLD_REFERENCE_LINK)
-        xyzrpy_in_world = moveit_tools.pose_to_xyzrpy(the_pose.pose)
+        xyzrpy_in_world = pose_tools.pose_to_xyzrpy(the_pose.pose)
         self.arm_commander.add_box_to_scene('the_object', the_block_config['dimensions'], xyzrpy_in_world[:3], xyzrpy_in_world[3:])
         
     # -----------------------------------------
@@ -193,14 +194,14 @@ class PushBlockTaskTreesManager(TaskTreesManager):
 
     def in_a_region(self, logical_region) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, self.the_scene.query_config(logical_region))     
+        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, self.the_scene.query_config(logical_region))     
     
     def over_an_object(self, object_name) -> bool:
         the_object = self.the_scene.get_object_config(object_name)
         the_object_position_as_bbox = [the_object.xyz[0] - the_object.dimensions[0] / 2, the_object.xyz[1] - the_object.dimensions[1] / 2,
                                     the_object.xyz[0] + the_object.dimensions[0] / 2, the_object.xyz[1] + the_object.dimensions[1] / 2]
         current_pose = self.arm_commander.pose_of_robot_link()
-        return moveit_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_object_position_as_bbox)   
+        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_object_position_as_bbox)   
      
     def on_or_above_z(self, position) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
@@ -231,11 +232,11 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         the_target_position_as_bbox = [the_target_object.xyz[0] - the_target_object.dimensions[0] / 2, the_target_object.xyz[1] - the_target_object.dimensions[1] / 2,
                                     the_target_object.xyz[0] + the_target_object.dimensions[0] / 2, the_target_object.xyz[1] + the_target_object.dimensions[1] / 2]
         xyzrpy_of_the_object = self.arm_commander.pose_in_frame_as_xyzrpy('the_object')
-        return moveit_tools.in_region(xyzrpy_of_the_object[0], xyzrpy_of_the_object[1], the_target_position_as_bbox)           
+        return pose_tools.in_region(xyzrpy_of_the_object[0], xyzrpy_of_the_object[1], the_target_position_as_bbox)           
             
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()
-        result = moveit_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
+        result = pose_tools.same_joint_values_with_tolerence(self.the_scene.query_config(named_pose), joint_values, 0.05)
         # logger.info(f'at {named_pose} pose: {result}')
         return result    
         
