@@ -52,14 +52,14 @@ scene:
   positions:
     default_z: [null, null, 0.5]
   objects:
-    - name: area_1
+    area_1:
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
       xyz: [0.4, 0.20, 0.00]
       rpy: [0, 0, 3.14]
       frame: null
-    - name: area_2
+    area_2:
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
@@ -83,16 +83,25 @@ subscenes:
 
 ### Collision Objects and Custom Reference Frames
 
-The collision object definition comprises the following mandatory keys:
-- `name`: name of the object and the reference frame resulting from the object.
+The collision object definition comprises the following mandatory keys headed by the name of the object.
 - `type`: `box`, `sphere`, or `object`
 - `model_file`: the path to the mesh file if the type is `object`
 - `dimensions`: a list of length, width, and height for a `box`, the radius for a `sphere`, and the scaling factor as a list of 3 numbers for an `object`.
 - `xyz`: the position of the object
 - `rpy`: the orientation of the object  
-- `frame`: the reference frame against which the object pose is measured, where null implies the world frame
+- `frame`: the reference frame against which the object pose is measured, where null implies the world frame. This field is optional.
 
-Every collision object will project its position and rotation as its own custom reference frames.
+Every collision object will project its position and rotation as its own custom reference frames. The following defines the object named `area_1` and the fields are populated. Note that the null frame is default to the world frame.
+```
+    area_1:
+      type: box
+      model_file: null
+      dimensions: [0.2, 0.2, 0.01]
+      xyz: [0.4, 0.20, 0.00]
+      rpy: [0, 0, 3.14]
+      frame: null
+```
+A collision object can be defined under a subscene as well. The default frame is that subscene.
 
 ### Loading and Querying the Scene Configuration File
 
@@ -102,7 +111,6 @@ To load the query the logical scene configuration, the task trees framework offe
 from task_trees.task_scene import Scene
 ...
     self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene_4.yaml'))
-
 ```
 The `Scene` class gives every configuration key a unique reference. The reference is a dot-separated string made up of the scene namespace followed by keys of the ancestors of a key-value configuration. For example, the reference `named_poses.home` refers to the `home` child of the `named_poses` node under the root scene (therefore the empty namespace). A configuration key under a subscene has a prepended namespace. For example, `area.positions.start` refers to the value `[0, 0.11, null]` in the above example.
 
@@ -185,6 +193,43 @@ Refer to the API Reference for more details about these functions.
 Any configuration key-value pair can be queried using the `Scene` class. A subclass of `Scene` can be developed to add computation to the configurations.
 
 For example, in the `gridscan` demo application [source code](../../demos/gridscan/demo.py), the physical position in a grid is determined by the grid cell index and the size of grid cell. The class `GridScanScene` was developed to compute the conversion of grid cell index to the corresponding physical position, based on the grid cell size specified in the scene configuration file.
+
+## Customized Configuration File
+
+The function `query_config` allows the query of any configuration key using a dot-separated query key. Each item in the query key corresponds to a node in the configuration yaml file. The item to reference a list-list structure must be a zero-starting integer. The item to reference a dict-like structure must be a string. 
+
+For example, tke query key `positions.start` refers to a configuration key under the root scene.
+```
+scene:
+  positions:
+    start: [1, 2, 3]
+    end: [2, 3, 5]
+```
+On the other hand, the query key `grid.1.rotation.alpha` matches the following structure, and it refers to the value [0, 0, 1.57]. The `1` refers to the index `1` of the list-like child under `grid`.
+```
+scene:
+  grid:
+    - rotation:
+        alpha: [3.14, 0, 0]
+    - rotation:
+        alpha: [0, 0, 1.57]
+```
+
+To refer to a configuration key under a subscene, the query key should start with the subscene name. Given the following configuration yaml file.
+```
+subscenes:
+  the_tank:
+    grid
+      - rotation:
+          alpha: [3.14, 0, 0]
+      - rotation:
+          alpha: [0, 0, 1.57]
+```
+The query key `the_tank.grid.0.rotation.alpha` refers to the value `[3.14, 0, 0]`.
+
+Application developers can design a suitable configuration structure and use the function `query_config` to rerieve configuration values.
+
+
 
 ### Author
 

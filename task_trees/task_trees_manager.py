@@ -381,7 +381,7 @@ class TaskTreesManager(BasicTaskTreesManager):
         self.root_sequence.insert_child(branch, index)
         self.num_priority_branch += 1
     
-    def _add_task_branch(self, branch:Composite, task_class:type):
+    def _add_task_branch(self, branch:Composite, task_class:type=None):
         """ Add a branch to be a task branch of the behaviour tree of this manager
 
         :param branch: a branch type Composite of behaviour tree nodes

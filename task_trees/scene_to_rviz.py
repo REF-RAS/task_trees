@@ -109,13 +109,13 @@ class SceneToRViz(RvizVisualizer):
         :type config_key: str
         :param plane: 'xy', 'yz' or 'xz', default is 'xy', ignored if the bbox is 3d
         :type plane: str, optional
-        :param rgba: the display clor of the 2d region, defaults to [1.0, 0.0, 1.0, 0.2]
+        :param rgba: the colour of the 2d or 3d region, defaults to [1.0, 0.0, 1.0, 0.2]
         :type rgba: list, optional
         """
         value = self.the_scene.query_config(config_key, None)
         if value is None:
             logger.warning(f'SceneToRViz (register_regions_as_bbox): Non-existent key {config_key}')
-            return False
+            return
         subscene = self.the_scene.get_subscene_of_config_name(config_key)
         reference_frame = subscene if subscene is not None else self.base_frame
         if plane is None:
@@ -126,11 +126,11 @@ class SceneToRViz(RvizVisualizer):
             for id, key in enumerate(value):
                 if type(value[key]) in [list, tuple]:
                     if len(value[key]) == 4:
-                        marker = rviz_tools.create_2dregion_marker(f'{config_key}.{key}', id, value[key], 0.0, reference_frame, plane, rgba=rgba)
+                        marker = rviz_tools.create_axisplane_marker(f'{config_key}.{key}', id, value[key], 0.0, reference_frame, plane, rgba=rgba)
                         self.add_persistent_marker(marker)
                         continue
                     elif len(value[key]) == 6:
-                        marker = rviz_tools.create_3dregion_marker(f'{config_key}.{key}', id, value[key], reference_frame, rgba=rgba)
+                        marker = rviz_tools.create_cube_marker_from_bbox(f'{config_key}.{key}', id, value[key], reference_frame, rgba=rgba)
                         self.add_persistent_marker(marker)
                         continue
                 logger.warning(f'SceneToRViz (display_bbox_regions): region ({key}) bbox should be a list of 4 or 6')
@@ -142,13 +142,13 @@ class SceneToRViz(RvizVisualizer):
         :type config_key: str
         :param arrow_length: length of the array, defaults to 1.0
         :type arrow_length: float, optional
-        :param rgba: the display clor of the 2d region, defaults to [1.0, 0.0, 1.0, 0.2]
+        :param rgba: the color of the arrow, defaults to [1.0, 0.0, 1.0, 0.2]
         :type rgba: list, optional
         """
         value = self.the_scene.query_config(config_key, None)
         if value is None:
             logger.warning(f'SceneToRViz (register_positions): Non-existent key {config_key}')
-            return False 
+            return 
         subscene = self.the_scene.get_subscene_of_config_name(config_key)
         reference_frame = subscene if subscene is not None else self.base_frame              
         if type(value) in [list, tuple] and len(value) == 3:
@@ -170,13 +170,13 @@ class SceneToRViz(RvizVisualizer):
 
         :param config_key: the name of the config key in the scene configuration, which is either the key itself or a parent of keys
         :type config_key: str
-        :param rgba: the display clor of the 2d region, defaults to [1.0, 0.0, 1.0, 0.2]
+        :param rgba: the colour of the line or plane, defaults to [1.0, 0.0, 1.0, 0.2]
         :type rgba: list, optional
         """
         value = self.the_scene.query_config(config_key, None)
         if value is None:
-            logger.warning(f'SceneToRViz (register_positions): Non-existent key {config_key}')
-            return False 
+            logger.warning(f'SceneToRViz (display_positions): Non-existent key {config_key}')
+            return 
         subscene = self.the_scene.get_subscene_of_config_name(config_key)
         reference_frame = subscene if subscene is not None else self.base_frame              
         if type(value) == list and len(value) == 3:
@@ -213,9 +213,41 @@ class SceneToRViz(RvizVisualizer):
                         plane = 'xz'
                     else:
                         plane = 'xy'
-                    marker = rviz_tools.create_2dregion_marker(f'{config_key}.{key}', id, bbox, xyz[index], reference_frame, plane, rgba=rgba)
+                    marker = rviz_tools.create_axisplane_marker(f'{config_key}.{key}', id, bbox, xyz[index], reference_frame, plane, rgba=rgba)
                     self.add_persistent_marker(marker)
-                    
+
+    def display_object(self, config_key:str, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
+        """ display one object associated with the config key
+
+        :param config_key: the name of the config key in the scene configuration, which is either the key itself or a parent of keys
+        :type config_key: str
+        :param rgba: the colour of the objects defaults to [1.0, 0.0, 1.0, 0.2]
+        :type rgba: list, optional
+        """
+        value = self.the_scene.query_config(config_key, None)
+        if value is None:
+            logger.warning(f'SceneToRViz (display_objects): Non-existent key {config_key}')
+            return  
+        subscene = self.the_scene.get_subscene_of_config_name(config_key)
+        reference_frame = subscene if subscene is not None else self.base_frame              
+        if type(value) != dict:
+            logger.warning(f'SceneToRViz (display_objects): the key {config_key} is not associated with a single object in a dict structure')
+            return
+        the_object = self.the_scene._create_object_config(value)
+        if the_object.type == 'box':
+            xyzrpy = the_object.xyz + the_object.rpy
+            marker = rviz_tools.create_cube_marker_from_xyzrpy(f'object.{config_key}', 0, xyzrpy, reference_frame, the_object.dimensions, rgba=rgba)
+            self.add_persistent_marker(marker)
+        elif the_object.type == 'sphere':
+            marker = rviz_tools.create_sphere_marker(f'object.{config_key}', 0, the_object.xyz, reference_frame, the_object.dimensions, rgba=rgba)
+            self.add_persistent_marker(marker)  
+        elif the_object.type == 'object':      
+            xyzrpy = the_object.xyz + the_object.rpy        
+            marker = rviz_tools.create_mesh_marker(f'object.{config_key}', 0, the_object.model_file, xyzrpy, reference_frame, the_object.dimensions, rgba=rgba)
+            self.add_persistent_marker(marker) 
+        else:
+            logger.warning(f'SceneToRViz (display_objects): Invalid object type {the_object.type} of the key {config_key}')
+
     # ------------------------------------------------------------------------
     # Functions for adding custom transforms for visualization
     # This class does not validate if the transform is published elsewhere
@@ -270,4 +302,6 @@ if __name__ == '__main__':
     scene_to_rviz.display_bbox_regions('tank.bbox', rgba=[0.2, 0.8, 0.4, 0.2])
     scene_to_rviz.display_rotations('tank.rotations', arrow_length=0.5, rgba=[0.2, 0.0, 1.0, 0.8])
     scene_to_rviz.display_positions('tank.positions', rgba=[1.0, 1.0, 0.0, 0.8])    
+    # test display objects
+    scene_to_rviz.display_object('objects.tank', rgba=[1.0, 0.2, 0.2, 0.8]) 
     rospy.spin()

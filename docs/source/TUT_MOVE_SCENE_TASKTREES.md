@@ -141,13 +141,13 @@ scene:
   positions:
     default_z: [null, null, 0.5]
   objects:
-    - name: area_1
+    area_1:
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
       xyz: [0.4, 0.20, 0.00]
       rpy: [0, 0, 3.14]
-    - name: area_2
+    area_2:
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]

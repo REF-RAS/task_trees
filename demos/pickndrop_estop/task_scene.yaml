@@ -8,13 +8,13 @@ scene:
   positions:
     drop: [0.5, 0.3, 0.4]
   objects:
-    - name: the_table
+    the_table:
       type: box
       model_file: null
       dimensions: [0.5, 0.2, 0.3]
       xyz: [0.2, -0.3, 0.15]
       rpy: [0, 0, 0]
-    - name: the_bin
+    the_bin:
       type: box
       model_file: null
       dimensions: [0.1, 0.1, 0.2]

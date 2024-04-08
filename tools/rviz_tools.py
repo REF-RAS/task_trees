@@ -86,15 +86,15 @@ def create_delete_all_marker(reference_frame:str):
     the_marker.action = Marker.DELETEALL
     return the_marker   
 
-def create_2dregion_marker(name:str, id:int, bbox:list, offset:float, reference_frame:str, plane:str='xy', plane_thickness=0.005, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
+def create_axisplane_marker(name:str, id:int, bbox2d:list, offset:float, reference_frame:str, axes:str='xy', plane_thickness=0.005, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
     """ Creates a marker for displaying a 2D region as a plane
 
     :param name: the name space of the marker
     :param id: the id of the marker
-    :param bbox: a bounding box as a list [min_x, min_y, max_x, max_y]
+    :param bbox2d: a bounding box as a list [min_x, min_y, max_x, max_y]
     :param offset: the z value where the plane is display
     :param reference_frame: the reference frame, defaults to None
-    :param plane: a string representing the plane where the bounding box lies, defaults to 'xy'
+    :param axes: a string representing the axes where the bounding box lies, defaults to 'xy'
     :param plane_thickness: the thickness of the plane to be displayed, defaults to 0.005
     :param rgba: the colour and alpha value, defaults to None
     :param lifetime: the duration that the marker is displayed, defaults to rospy.Duration(0.0)
@@ -103,35 +103,35 @@ def create_2dregion_marker(name:str, id:int, bbox:list, offset:float, reference_
     the_marker = _create_marker(name, id, reference_frame, lifetime)
     the_marker.type = Marker().CUBE
     rpy = [0, 0, 0]
-    scale1 = abs(bbox[2] - bbox[0])
-    scale2 = abs(bbox[3] - bbox[1])
+    scale1 = abs(bbox2d[2] - bbox2d[0])
+    scale2 = abs(bbox2d[3] - bbox2d[1])
     scale1 = 0.01 if scale1 == 0 else scale1
     scale2 = 0.01 if scale2 == 0 else scale2
-    if plane == 'xy':
-        xyz = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2, offset]
+    if axes == 'xy':
+        xyz = [(bbox2d[0] + bbox2d[2]) / 2, (bbox2d[1] + bbox2d[3]) / 2, offset]
         the_marker.pose = list_to_pose(xyz + rpy)
         the_marker.scale = Vector3(scale1, scale2, plane_thickness)
-    elif plane == 'yz':
-        xyz = [offset, (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
+    elif axes == 'yz':
+        xyz = [offset, (bbox2d[0] + bbox2d[2]) / 2, (bbox2d[1] + bbox2d[3]) / 2]
         the_marker.pose = list_to_pose(xyz + rpy)
         the_marker.scale = Vector3(plane_thickness, scale1, scale2)
-    elif plane == 'xz':
-        xyz = [(bbox[0] + bbox[2]) / 2, offset, (bbox[1] + bbox[3]) / 2]
+    elif axes == 'xz':
+        xyz = [(bbox2d[0] + bbox2d[2]) / 2, offset, (bbox2d[1] + bbox2d[3]) / 2]
         the_marker.pose = list_to_pose(xyz + rpy)
         the_marker.scale = Vector3(scale1, plane_thickness, scale2)
     else:
-        logger.warning(f'create_2dregion_marker: invalid plane parameter {plane}')
+        logger.warning(f'create_2dregion_marker: invalid plane parameter {axes}')
         return None
     rgba = RGBAColors.RED.rgba if rgba is None else rgba
     the_marker.color = ColorRGBA(*rgba)
     return the_marker
 
-def create_3dregion_marker(name:str, id:int, bbox:list, reference_frame:str, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
+def create_cube_marker_from_bbox(name:str, id:int, bbox3d:list, reference_frame:str, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
     """ Creates a marker for displaying a 3D region as a box
 
     :param name: the name space of the marker
     :param id: the id of the marker
-    :param bbox: a bounding box as a list [min_x, min_y, min_z, max_x, max_y, max_z]
+    :param bbox3d: a bounding box as a list [min_x, min_y, min_z, max_x, max_y, max_z]
     :param reference_frame: the reference frame, defaults to None
     :param rgba: the colour and alpha value, defaults to None
     :param lifetime: the duration that the marker is displayed, defaults to rospy.Duration(0.0)
@@ -140,9 +140,30 @@ def create_3dregion_marker(name:str, id:int, bbox:list, reference_frame:str, rgb
     the_marker = _create_marker(name, id, reference_frame, lifetime)
     the_marker.type = Marker().CUBE
     rpy = [0, 0, 0]
-    xyz = [(bbox[0] + bbox[3]) / 2, (bbox[1] + bbox[4]) / 2, (bbox[2] + bbox[5]) / 2]
+    xyz = [(bbox3d[0] + bbox3d[3]) / 2, (bbox3d[1] + bbox3d[4]) / 2, (bbox3d[2] + bbox3d[5]) / 2]
     the_marker.pose = list_to_pose(xyz + rpy)
-    the_marker.scale = Vector3(bbox[3] - bbox[0], bbox[4] - bbox[1], bbox[5] - bbox[2])
+    the_marker.scale = Vector3(bbox3d[3] - bbox3d[0], bbox3d[4] - bbox3d[1], bbox3d[5] - bbox3d[2])
+    rgba = RGBAColors.RED.rgba if rgba is None else rgba
+    the_marker.color = ColorRGBA(*rgba)
+    return the_marker
+
+def create_cube_marker_from_xyzrpy(name:str, id:int, xyzrpy:list, reference_frame:str, dimensions:list=0.5, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
+    """ Creates a marker for displaying a 3D region as a box
+
+    :param name: the name space of the marker
+    :param id: the id of the marker
+    :param bbox3d: a bounding box as a list [min_x, min_y, min_z, max_x, max_y, max_z]
+    :param reference_frame: the reference frame, defaults to None
+    :param rgba: the colour and alpha value, defaults to None
+    :param lifetime: the duration that the marker is displayed, defaults to rospy.Duration(0.0)
+    :return: the Marker object
+    """
+    the_marker = _create_marker(name, id, reference_frame, lifetime)
+    the_marker.type = Marker().CUBE
+    the_marker.pose = list_to_pose(xyzrpy)
+    if isinstance(dimensions, numbers.Number):
+        dimensions = [dimensions, dimensions, dimensions]
+    the_marker.scale = Vector3(*dimensions)
     rgba = RGBAColors.RED.rgba if rgba is None else rgba
     the_marker.color = ColorRGBA(*rgba)
     return the_marker
@@ -190,7 +211,45 @@ def create_line_marker(name:str, id:int, xyz1:list, xyz2:list, reference_frame:s
     rgba = RGBAColors.RED.rgba if rgba is None else rgba
     the_marker.color = ColorRGBA(*rgba)
     return the_marker    
-    
+
+def create_path_marker(name:str, id:int, xyzlist:list, reference_frame:str, line_width:float=0.01, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
+    """ Creates a marker for displaying a path of multiple waypoints
+
+    :param name: the name space of the marker
+    :param id: the id of the marker
+    :param xyzlist: a list of points (xyz, Pose or PoseStamped) defining the path
+    :param reference_frame: the reference frame, defaults to None
+    :param line_width: the width of the line, defaults to 0.01
+    :param rgba: the colour and alpha value, defaults to None
+    :param lifetime: the duration that the marker is displayed, defaults to rospy.Duration(0.0)
+    :return: the Marker object
+    """
+    the_marker = _create_marker(name, id, reference_frame, lifetime)
+    the_marker.type = Marker().LINE_LIST
+    xyzrpy = [0, 0, 0, 0, 0, 0]
+    the_marker.pose = list_to_pose(xyzrpy)
+    rgba = RGBAColors.RED.rgba if rgba is None else rgba
+    the_marker.points[:] = []
+    the_marker.colors[:] = []
+    prev_xyz = None
+    for i, xyz in enumerate(xyzlist):
+        if type(xyz) == PoseStamped:
+            xyz = Point(xyz.pose.position.x, xyz.pose.position.y, xyz.pose.position.z)
+        elif type(xyz) == Pose:
+            xyz = Point(xyz.position.x, xyz.position.y, xyz.position.z)
+        elif type(xyz) in (tuple, list):
+            xyz = Point(*xyz)
+        if i == 0: 
+            prev_xyz = xyz
+            continue
+        the_marker.points.append(prev_xyz)
+        the_marker.points.append(xyz)
+        the_marker.colors.append(ColorRGBA(*rgba))
+        the_marker.colors.append(ColorRGBA(*rgba))
+        prev_xyz = xyz
+    the_marker.scale.x = line_width
+    return the_marker
+
 def create_sphere_marker(name:str, id:int, xyz:list, reference_frame:str, dimensions=0.2, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
     """ Creates a marker for displaying a sphere
 
@@ -212,7 +271,30 @@ def create_sphere_marker(name:str, id:int, xyz:list, reference_frame:str, dimens
     the_marker.scale = Vector3(*dimensions)
     rgba = RGBAColors.RED.rgba if rgba is None else rgba
     the_marker.color = ColorRGBA(*rgba)      
-    return the_marker  
+    return the_marker
+
+def create_cylinder_marker(name:str, id:int, xyzrpy:list, reference_frame:str, dimensions=[0.1, 0.1, 0.2], rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
+    """ Creates a marker for displaying a cylinder
+
+    :param name: the name space of the marker
+    :param id: the id of the marker
+    :param xyzrpy: the pose of the cylinder
+    :param reference_frame: the reference frame, defaults to None
+    :param dimensions: the dimensions of the cylinder as a list of 3 numbers representing radius in x and y direction and the height
+    :param rgba: the colour and alpha value, defaults to None
+    :param lifetime: the duration that the marker is displayed, defaults to rospy.Duration(0.0)
+    :return: the Marker object
+    """
+    the_marker = _create_marker(name, id, reference_frame, lifetime)
+    the_marker.type = Marker().CYLINDER 
+    the_marker.pose = list_to_pose(xyzrpy) 
+    if type(dimensions) not in (tuple, list) or any([not isinstance(x, numbers.Number) for x in dimensions]):
+        logger.warning(f'create_cylinder_marker: dimensions should be a list of 3 numbers (radius, radius, height)')
+        return None
+    the_marker.scale = Vector3(*dimensions)
+    rgba = RGBAColors.RED.rgba if rgba is None else rgba
+    the_marker.color = ColorRGBA(*rgba)      
+    return the_marker 
 
 def create_text_marker(name:str, id:int, text:str, xyzrpy:list, reference_frame:str, dimensions:list=0.5, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
     """ Creates a marker for displaying a text
@@ -236,6 +318,32 @@ def create_text_marker(name:str, id:int, text:str, xyzrpy:list, reference_frame:
     rgba = RGBAColors.RED.rgba if rgba is None else rgba
     the_marker.color = ColorRGBA(*rgba)
     the_marker.text = text
+    return the_marker
+
+def create_mesh_marker(name:str, id:int, filename:str, xyzrpy:list, reference_frame:str, dimensions:list=0.5, rgba:list=None, lifetime=rospy.Duration(0.0)) -> Marker:
+    """ Creates a marker for displaying a mesh object
+
+    :param name: the name space of the marker
+    :param id: the id of the marker
+    :param filename: the file containing a binary STL or DAE file
+    :param xyzrpy: the pose of the text as a list of 6
+    :param reference_frame: the reference frame, defaults to None
+    :param dimensions: the scale factor of the mesh object, defaults to [1, 1, 1]
+    :param rgba: the colour and alpha value, defaults to None
+    :param lifetime: the duration that the marker is displayed, defaults to rospy.Duration(0.0)
+    :return: the Marker object
+    """
+    the_marker = _create_marker(name, id, reference_frame, lifetime)
+    the_marker.type = Marker().MESH_RESOURCE 
+    the_marker.pose = list_to_pose(xyzrpy)
+    if type(dimensions) not in (tuple, list) or any([not isinstance(x, numbers.Number) for x in dimensions]):
+        logger.warning(f'create_mesh_marker: dimensions should be a list of 3 numbers (radius, radius, height)')
+        return None
+    the_marker.scale = Vector3(*dimensions)
+    rgba = RGBAColors.RED.rgba if rgba is None else rgba
+    the_marker.color = ColorRGBA(*rgba)
+    the_marker.mesh_resource = filename
+    the_marker.mesh_use_embedded_materials = True
     return the_marker
 
 def create_pointcloud_from_image(image_bgr, xyz:list=(0, 0, 0), pixel_physical_size:float=0.005, reference_frame=None, opacity=255, depth_array=None) -> PointCloud2:

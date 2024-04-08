@@ -28,7 +28,7 @@ class Scene():
         """
         # load data from the config yaml file
         if scene_config_file is None:
-            scene_config_file = os.path.join(os.path.dirname(__file__), 'task_scene.yaml')
+            scene_config_file = os.path.join(os.path.dirname(__file__), '../demos/gridscan/task_scene.yaml')
         with open(scene_config_file, 'r') as f:
             config = yaml.safe_load(f)
         self.config = config
@@ -45,13 +45,16 @@ class Scene():
         if config_name is None:
             return None
         parts = config_name.split('.')
-        if self.subscene_config is not None and len(parts) > 1 and (parts[0] in self.subscene_config): # one of the subscenes
+        # print(f'_parse_config_name: {config_name} {parts} {parts[0]} {self.subscene_config}')
+        if self.subscene_config is not None and len(parts) > 1 and (parts[0] in self.subscene_config.keys()): # one of the subscenes
             return SceneName(parts[0], parts[1:])
         else:
             return SceneName(None, parts)
 
     # internal function: extract and validate an object definition
-    def _process_an_object(self, obj:dict) -> ObjectConfig:
+    def _create_object_config(self, obj:dict) -> ObjectConfig:
+        if obj is None:
+            return None
         if 'name' not in obj:
             logger.error(f'Scene (_process_an_object): the keys in the object config contains no "name"')
             return None
@@ -67,23 +70,66 @@ class Scene():
             return None
         return ObjectConfig(obj['name'], obj['type'], model_file, obj['dimensions'], obj['xyz'], obj['rpy'], obj.get('frame', None))
 
+    def _extract_objects_dict(self, source_object_config:dict, the_map:dict, subscene:str=None) -> ObjectConfig:
+        # assume object_config is a dict
+        for name in source_object_config:
+            obj = source_object_config[name]
+            obj['name'] = name
+            if 'frame' not in obj:
+                obj['frame'] = subscene
+            object_config = self._create_object_config(obj)
+            if object_config:
+                if subscene is None:
+                    the_map[name] = object_config
+                else:
+                    the_map[f'{subscene}.{name}'] = object_config
+
+    def _extract_objects_list(self, source_object_config:list, the_map:dict, subscene:str=None) -> ObjectConfig:          
+        # assume object_config is a list
+        for obj in source_object_config:
+            name = obj['name']
+            if 'frame' not in obj:
+                obj['frame'] = subscene
+            object_config = self._create_object_config(obj)
+            if object_config:
+                if subscene is None:
+                    the_map[name] = object_config
+                else:
+                    the_map[f'{subscene}.{name}'] = object_config     
+
+    def _print_warning(self) -> None:
+        if not hasattr(self, 'warned'):
+            self.warned = True
+            logger.warning(f'''Scene configuration file format changed. 
+            Objects are defined using a dict structure instead of a list structure.
+            objects:
+                name:
+                    type: ...
+                    xyz: ...
+                    ...
+            The old format will not be acceptable in the future. Update the file is recommended.''')
+
     # internal function: returns a map of (name, value) of objects defined in the config file
     def _process_objects(self) -> dict:
         the_map = dict()
         # process the main scene
         if self.scene_config is not None and 'objects' in self.scene_config:
-            for obj in self.scene_config['objects']:
-                object_config = self._process_an_object(obj)
-                if object_config:
-                    the_map[obj['name']] = object_config
+            object_config = self.scene_config['objects']
+            if type(object_config) in (tuple, list):
+                self._extract_objects_list(object_config, the_map)
+                self._print_warning()
+            else:
+                self._extract_objects_dict(object_config, the_map)
         # process each subscene
         if self.subscene_config is not None:
             for subscene in self.subscene_config.keys():
                 if 'objects' in self.subscene_config[subscene]:
-                    for obj in self.subscene_config[subscene]['objects']:
-                        object_config = self._process_an_object(obj)
-                        if object_config:
-                            the_map[f'{subscene}.{obj["name"]}'] = object_config
+                    object_config = self.subscene_config[subscene]['objects']
+                    if type(object_config) in (tuple, list):
+                        self._extract_objects_list(object_config, the_map, subscene)
+                        self._print_warning()
+                    else:
+                        self._extract_objects_dict(object_config, the_map, subscene)
         return the_map    
 
     # -------------------------------------------
@@ -106,18 +152,27 @@ class Scene():
             pointer = self.subscene_config[scene_name.subscene]
         else:
             pointer = self.scene_config
-
         for item in scene_name.path:
             if item.isnumeric():
-                item = int(item)
-                if item < 0 or item >= len(pointer):
-                    logger.error(f'query_config: part of the name contains an invalid index {item}')
+                try:
+                    item = int(item)
+                except:
+                    logger.error(f'query_config: part of query key {name} contains an non-integer index {item}')
                     raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')
+                if item < 0 or item >= len(pointer):
+                    logger.error(f'query_config: part of query key {name} contains an out-of-range integer index {item} ')
+                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')
+                if type(pointer) not in (tuple, list):
+                    logger.error(f'query_config: part of query key {name} contains an invalid index {item}, expecting a string key')
+                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')                    
                 pointer = pointer[item]
             else:
+                if type(pointer) != dict:
+                    logger.error(f'query_config: part of query key {name} contains an invalid index {item}, expecting an integer')
+                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')                    
                 if item not in pointer:
-                    logger.error(f'query_config: part of the name contains an invalid key {item}')
-                    raise AssertionError(f'query_config: Non-existent the config name "{name}", which contains an invalid key {item}')
+                    logger.error(f'query_config: part of query key {name} contains a non-existent index {item}')
+                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')                    
                 pointer = pointer[item]
         return pointer
     
@@ -250,5 +305,12 @@ if __name__ == '__main__':
     for object_name in objects:
         print(f'object {object_name}: {the_scene.get_object_config(object_name)}')
     
+    the_object = the_scene.query_config('objects.tank')
+    print(the_object)
+    
     print(f'tank tile step_sizes: {the_scene.query_config("tank.tile")}')
+
+    keys = ['grid.0.rotation.alpha', 'grid.1.rotation.alpha', 'grid.2.rotation.alpha']
+    for key in keys:
+        print(f'key {key}', the_scene.query_config(key))
     

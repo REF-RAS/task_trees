@@ -17,55 +17,55 @@ scene:
       xyz: [0.0, 0.025, 0.151]
       rpy: [0, 0, 0]
   objects:
-    - name: block_1
+    block_1:
       type: box
       model_file: null
       dimensions: [0.10, 0.10, 0.35]
       xyz: [0.4, -0.10, 0.175]
       rpy: [0, 0, 0]
-    - name: block_2
+    block_2:
       type: box
       model_file: null
       dimensions: [0.10, 0.10, 0.35]
       xyz: [0.6, -0.10, 0.175]
       rpy: [0, 0, 0]
-    - name: block_3
+    block_3:
       type: box
       model_file: null
       dimensions: [0.10, 0.10, 0.35]
       xyz: [0.6, 0.10, 0.175]
       rpy: [0, 0, 0]
-    - name: block_4
+    block_4:
       type: box
       model_file: null
       dimensions: [0.10, 0.10, 0.35]
       xyz: [0.4, 0.10, 0.175]
       rpy: [0, 0, 0]
-    - name: area_1
+    area_1:
       type: box
       model_file: null
       dimensions: [0.1, 0.1, 0.25]
       xyz: [0.4, 0.0, 0.125]
       rpy: [0, 0, 1.57]
-    - name: area_2
+    area_2:
       type: box
       model_file: null
       dimensions: [0.1, 0.1, 0.25]
       xyz: [0.50, -0.10, 0.125]
       rpy: [0, 0, 3.14]
-    - name: area_3
+    area_3:
       type: box
       model_file: null
       dimensions: [0.1, 0.1, 0.25]
       xyz: [0.6, 0.0, 0.125]
       rpy: [0, 0, -1.57]
-    - name: area_4
+    area_4:
       type: box
       model_file: null
       dimensions: [0.1, 0.1, 0.25]
       xyz: [0.50, 0.10, 0.125]
       rpy: [0, 0, 0]   
-    - name: area_5
+    area_5:
       type: box
       model_file: null
       dimensions: [0.1, 0.1, 0.25]
