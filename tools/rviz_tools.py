@@ -357,7 +357,9 @@ def create_pointcloud_from_image(image_bgr, xyz:list=(0, 0, 0), pixel_physical_s
     :param depth_array: optionally a numpy array of exact the same shape as the image indicating the depth, defaults to None
     :return: the PointCloud2 object
     """
-
+    if image_bgr is None:
+        logger.error(f'{__name__} (image_to_pointcloud): the parameter image_bgr is None') 
+        raise AssertionError('Parameter is None')        
     if depth_array is not None:
         if image_bgr.shape[0] != depth_array.shape[0] or image_bgr.shape[1] != depth_array.shape[1]:
             logger.error(f'{__name__} (image_to_pointcloud): the shape of the parameter depth_array {depth_array.shape} is different from the image_bgr') 
@@ -420,13 +422,18 @@ class RvizVisualizer():
     def __init__(self, **kwargs):
         """ The constructur
 
-        :param pub_rate: the rate of publishing, defaults to 1.0
+        :param pub_period_marker: the default period of publishing marker, defaults to 1.0 second
+        :param pub_period_cloud: the default period of publishing point cloud, defaults to 1.0 second
+        :param topic_marker: the topic used to publish markers, defaults to visualization_marker
+        :param topic_cloud: the topic used to publish point cloud, defaults to visualization_cloud     
         """
         self.lock = threading.Lock()
+        # the constant defining the timer period, the actual rate of publishing depends on the individual markers
+        TIMER_PERIOD = 0.1
         # set default values for keyword argument
-        pub_rate_marker = kwargs.get('pub_rate_marker', 1.0)
+        self.default_pub_period_marker = kwargs.get('pub_period_marker', 1.0)
         topic_marker = kwargs.get('topic_marker', '/visualization_marker')
-        pub_rate_cloud = kwargs.get('pub_rate_cloud', 1.0)
+        self.default_pub_period_cloud = kwargs.get('pub_period_cloud', 1.0)
         topic_cloud = kwargs.get('topic_cloud', '/visualization_cloud')
         # the storage for markers
         self.marker_dict = defaultdict(lambda: None)
@@ -436,19 +443,23 @@ class RvizVisualizer():
         self.marker_pub = rospy.Publisher(topic_marker, Marker, queue_size = 100)
         self.cloud_pub = rospy.Publisher(topic_cloud, PointCloud2, queue_size = 2)
         # setup timer
-        pub_period_marker = 1.0 / pub_rate_marker if pub_rate_marker > 0 else 1.0
-        self.timer_marker_viz = rospy.Timer(rospy.Duration(pub_period_marker), self._cb_timer_marker_viz)
-        pub_period_cloud = 1.0 / pub_rate_cloud if pub_rate_cloud > 0 else 1.0
-        self.timer_cloud_viz = rospy.Timer(rospy.Duration(pub_period_cloud), self._cb_timer_cloud_viz)
+        self.timer_marker_viz = rospy.Timer(rospy.Duration(TIMER_PERIOD), self._cb_timer_marker_viz)
+        self.timer_cloud_viz = rospy.Timer(rospy.Duration(TIMER_PERIOD), self._cb_timer_cloud_viz)
 
     def _cb_timer_marker_viz(self, event):
         """ internal callback function 
         :meta private:
         """
-        with self.lock:     
+        with self.lock: 
+            # publish the persistent markers of which the pub_period has lapsed    
             for key in self.marker_dict.keys():
-                marker = self.marker_dict.get(key)
-                self.marker_pub.publish(marker)
+                marker_dict = self.marker_dict.get(key)
+                marker = marker_dict['marker'] 
+                current_time = time.time()
+                if marker_dict['last_time'] is None or current_time - marker_dict['last_time'] >= marker_dict['pub_period']:
+                    self.marker_pub.publish(marker)
+                    marker_dict['last_time']  = current_time
+            # publish the temporary markers
             for marker in self.temp_marker_list:
                 self.marker_pub.publish(marker) 
             self.temp_marker_list.clear() 
@@ -458,18 +469,25 @@ class RvizVisualizer():
         :meta private:
         """
         with self.lock:   
-            for pointcloud in self.pointcloud_dict.values():
-                pointcloud.header.stamp = rospy.Time.now()
-                self.cloud_pub.publish(pointcloud)
+            for pointcloud_dict in self.pointcloud_dict.values():
+                pointcloud = pointcloud_dict['pointcloud']
+                current_time = time.time()
+                if pointcloud_dict['last_time'] is None or current_time - pointcloud_dict['last_time'] >= pointcloud_dict['pub_period']:
+                    pointcloud.header.stamp = rospy.Time.now()
+                    self.cloud_pub.publish(pointcloud)
+                    pointcloud_dict['last_time']  = current_time
 
-    def add_persistent_marker(self, marker:Marker) -> Marker:
+    def add_persistent_marker(self, marker:Marker, pub_period:float=None) -> Marker:
         """ Add a persistent marker
 
         :param marker: A marker to be persistently published
+        :param pub_period: The rate of publishing, which cannot be smaller than 0.1 seconds
         :return: The mrker
         """
         with self.lock:
-            self.marker_dict[marker.ns, marker.id] = marker
+            pub_period = self.default_pub_period_marker if pub_period is None else pub_period
+            pub_period = 0.1 if pub_period < 0.1 else pub_period
+            self.marker_dict[marker.ns, marker.id] = {'marker': marker, 'pub_period': pub_period, 'last_time': None}
             return marker
             
     def pub_temporary_marker(self, marker:Marker) -> Marker:
@@ -503,15 +521,18 @@ class RvizVisualizer():
                 del self.marker_dict[name, id]
                 self.temp_marker_list.append(create_delete_marker(name, id, frame))    
 
-    def add_pointcloud(self, name, pointcloud:PointCloud2) -> PointCloud2:
+    def add_pointcloud(self, name, pointcloud:PointCloud2, pub_period:float=None) -> PointCloud2:
         """ Add a PointCloud2 object for regular publishing
 
         :param name: the name of the pointcloud of type str
         :param pointcloud: an object to be published
+        :param pub_period: The rate of publishing, which cannot be smaller than 0.1 seconds
         :return: the point cloud input parameter 
         """
         with self.lock:
-            self.pointcloud_dict[name] = pointcloud
+            pub_period = self.default_pub_period_marker if pub_period is None else pub_period
+            pub_period = 0.1 if pub_period < 0.1 else pub_period
+            self.pointcloud_dict[name] = {'pointcloud': pointcloud, 'pub_period': pub_period, 'last_time': None}
             return pointcloud
 
     def delete_pointcloud(self, name) -> PointCloud2:
@@ -534,7 +555,7 @@ if __name__ == '__main__':
     # test the mark visualization
     rv = RvizVisualizer()
     text_marker = rv.add_persistent_marker(create_text_marker('text', 1, 'Hello', [0, 0, 0, 0.2, 0, 0], 'world', 0.3))
-    rv.add_persistent_marker(create_line_marker('line', 1, [1, 0, 0], [0, 0, 1], 'world', 0.01, rgba=[0.0, 1.0, 1.0, 1.0]))
+    rv.add_persistent_marker(create_line_marker('line', 1, [1, 0, 0], [0, 0, 1], 'world', 0.01, rgba=[0.0, 1.0, 1.0, 1.0]), pub_period=0.1)
     rv.add_persistent_marker(create_sphere_marker('sphere', 1, [1, 1, 1], 'world', 0.05, rgba=[0.5, 1.0, 1.0, 1.0]))    
     rv.pub_temporary_marker(create_arrow_marker('arrow', 1, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], 'world', lifetime=rospy.Duration(3.0)))
     rospy.sleep(rospy.Duration(2.0))
@@ -545,7 +566,7 @@ if __name__ == '__main__':
     #     rospy.sleep(rospy.Duration(0.2))
     # rv.delete_persistent_markers('text', 1, 'world')
     # test the image visualization
-    image_bgr = cv2.imread(os.path.join(os.path.dirname(__file__), '../sample.jpg'))
-    pc2_message = create_pointcloud_from_image(image_bgr, (1, 0.5, 1), pixel_physical_size=[0.001, 0.002, -1], reference_frame='world')
+    image_bgr = cv2.imread(os.path.join(os.path.dirname(__file__), '../demos/rviz_display/bird.png'))
+    pc2_message = create_pointcloud_from_image(image_bgr, (1, 0.5, 1), pixel_physical_size=[0.002, 0.002, -1], reference_frame='world')
     rv.add_pointcloud('the_image', pc2_message)
     rospy.spin()

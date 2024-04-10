@@ -20,11 +20,12 @@ import tools.rviz_tools as rviz_tools
 from tools.logging_tools import logger
 from tools.rviz_tools import RvizVisualizer
 from tools.pose_tools import pose_to_xyzq, list_to_xyzq
+from tools.rospkg_tools import PackageFile
 
 class SceneToRViz(RvizVisualizer):
     """ The helper class for managing visualization of scene configs in rviz
     """
-    def __init__(self, the_scene:Scene, base_frame:str=None, publish_objects_transform=True):
+    def __init__(self, the_scene:Scene, base_frame:str=None, publish_objects_transform=True, pub_period:float=0.1):
         # check if a ROS node has been initialized 
         node_uri = rospy.get_node_uri()
         if node_uri is None:
@@ -49,7 +50,7 @@ class SceneToRViz(RvizVisualizer):
         # setup custom transforms
         self.custom_transform_object_dict = defaultdict(lambda: None)
         # setup timer
-        self.timer_transform = rospy.Timer(rospy.Duration(0.1), self._cb_timer_transform)
+        self.timer_transform = rospy.Timer(rospy.Duration(pub_period), self._cb_timer_transform)
     
     # internal function: for publishing the transform regularly
     def _cb_timer_transform(self, event):
@@ -241,9 +242,14 @@ class SceneToRViz(RvizVisualizer):
         elif the_object.type == 'sphere':
             marker = rviz_tools.create_sphere_marker(f'object.{config_key}', 0, the_object.xyz, reference_frame, the_object.dimensions, rgba=rgba)
             self.add_persistent_marker(marker)  
-        elif the_object.type == 'object':      
+        elif the_object.type == 'object': 
+            try:
+                model_file = PackageFile.resolve_to_file_or_http_uri(the_object.model_file)
+            except Exception as ex:
+                logger.warning(f'SceneToRViz (display_objects): Invalid model_file for object ({the_object.model_file}): {ex}')
+                return
             xyzrpy = the_object.xyz + the_object.rpy        
-            marker = rviz_tools.create_mesh_marker(f'object.{config_key}', 0, the_object.model_file, xyzrpy, reference_frame, the_object.dimensions, rgba=rgba)
+            marker = rviz_tools.create_mesh_marker(f'object.{config_key}', 0, model_file, xyzrpy, reference_frame, the_object.dimensions, rgba=rgba)
             self.add_persistent_marker(marker) 
         else:
             logger.warning(f'SceneToRViz (display_objects): Invalid object type {the_object.type} of the key {config_key}')

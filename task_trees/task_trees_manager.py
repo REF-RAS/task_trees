@@ -359,6 +359,16 @@ class TaskTreesManager(BasicTaskTreesManager):
                 self.arm_commander.add_object_to_scene(object_name, the_object.model_file, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
             else:
                 logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_object.type}"')
+
+    def _define_custom_frames(self, the_scene:Scene):
+        """ Define the custom frames in the arm commander as specified in the scene configuration file
+
+        :param the_scene: _description_
+        :param object_type: _description_, defaults to None
+        """
+        for frame_name in the_scene.list_frame_names():
+            the_frame = the_scene.get_frame_config(frame_name)
+            self.arm_commander.add_custom_transform(frame_name, the_frame.xyz, the_frame.rpy, the_frame.parent)
         
     def _set_initialize_branch(self, branch:Composite):
         """ Set or replace a branch to be the initialization branch of the behaviour tree of this manager

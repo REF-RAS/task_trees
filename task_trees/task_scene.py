@@ -15,6 +15,7 @@ from tools.logging_tools import logger
 
 # namedtuples for internal data structure for higher readability
 ObjectConfig = namedtuple('ObjectConfig', ['name', 'type', 'model_file', 'dimensions', 'xyz', 'rpy', 'frame']) # representing an object
+FrameConfig = namedtuple('FrameConfig', ['name', 'xyz', 'rpy', 'parent'])
 SceneName = namedtuple('SceneName', ['subscene', 'path'])
 
 class Scene():
@@ -36,9 +37,9 @@ class Scene():
         self.scene_config = self.config['scene'] if 'scene' in self.config else None
         # if subscenes are defined in the file, define another variable for that
         self.subscene_config = self.config['subscenes'] if 'subscenes' in self.config else None
-
-        # preprocess the objects
+        # preprocess the objects and frames
         self.objects_map = self._process_objects()
+        self.frames_map = self._process_frames()
 
     # internal function: parse a dot-separated config name (path) into two parts, the subscene and a list of the path
     def _parse_config_name(self, config_name:str) -> SceneName:
@@ -50,6 +51,9 @@ class Scene():
             return SceneName(parts[0], parts[1:])
         else:
             return SceneName(None, parts)
+        
+    # -------------------------------------------
+    # functions for extracting objects and frames
 
     # internal function: extract and validate an object definition
     def _create_object_config(self, obj:dict) -> ObjectConfig:
@@ -109,7 +113,7 @@ class Scene():
                     ...
             The old format will not be acceptable in the future. Update the file is recommended.''')
 
-    # internal function: returns a map of (name, value) of objects defined in the config file
+    # internal function: returns a map of (name, ObjectConfig) of objects defined in the config file
     def _process_objects(self) -> dict:
         the_map = dict()
         # process the main scene
@@ -120,9 +124,12 @@ class Scene():
                 self._print_warning()
             else:
                 self._extract_objects_dict(object_config, the_map)
+        
         # process each subscene
         if self.subscene_config is not None:
             for subscene in self.subscene_config.keys():
+                if self.subscene_config[subscene] is None:
+                    continue
                 if 'objects' in self.subscene_config[subscene]:
                     object_config = self.subscene_config[subscene]['objects']
                     if type(object_config) in (tuple, list):
@@ -130,6 +137,42 @@ class Scene():
                         self._print_warning()
                     else:
                         self._extract_objects_dict(object_config, the_map, subscene)
+        return the_map    
+
+    def _extract_frames_dict(self, source_frame_config:dict, the_map:dict, subscene:str=None) -> FrameConfig:
+        # assume object_config is a dict
+        for name in source_frame_config:
+            obj = source_frame_config[name]
+            obj['name'] = name
+            if 'frame' in obj:
+                obj['parent'] = obj['frame']
+            if 'parent' not in obj:
+                obj['parent'] = subscene
+            if 'xyz' not in obj or 'rpy' not in obj:
+                logger.error(f'Scene (_extract_frames_dict): the keys in the object config ({obj["name"]}) contains no "xyz" or "rpy"')
+                return None            
+            frame_config = FrameConfig(obj['name'], obj['xyz'], obj['rpy'], obj['parent'])
+            if frame_config:
+                if subscene is None:
+                    the_map[name] = frame_config
+                else:
+                    the_map[f'{subscene}.{name}'] = frame_config
+
+    # internal function: returns a map of (name, FrameConfig) of frames defined in the config file
+    def _process_frames(self) -> dict:
+        the_map = dict()
+        # process the main scene
+        if self.scene_config is not None and 'frames' in self.scene_config:
+            frame_config = self.scene_config['frames']
+            self._extract_frames_dict(frame_config, the_map)
+        # process each subscene
+        if self.subscene_config is not None:
+            for subscene in self.subscene_config.keys():
+                if self.subscene_config[subscene] is None:
+                    continue
+                if 'frames' in self.subscene_config[subscene]:
+                    frame_config = self.subscene_config[subscene]['frames']
+                    self._extract_frames_dict(frame_config, the_map, subscene)
         return the_map    
 
     # -------------------------------------------
@@ -263,7 +306,7 @@ class Scene():
         """ return the object configuration as ObjectConfig tuple, or None if the name not exists
         :param object_name: name of the object
         :type object_name: str
-        :return: the configuration as a tuple or None if not exists
+        :return: the configuration as a ObjectConfig or None if not exists
         :rtype: ObjectConfig
         """
         return self.objects_map.get(object_name)
@@ -280,6 +323,26 @@ class Scene():
             pose_name = 'named_poses.' + pose_name
             result[pose_name] = self.query_config(pose_name)
         return result
+
+    # list the frame names
+    def list_frame_names(self) -> list:
+        """ return the list of frames defined in the scene configuration
+        :return: a list of frames names as strings
+        :rtype: list
+        """
+        if self.frames_map is None:
+            return []
+        return self.frames_map.keys()
+
+    # return config given the object name
+    def get_frame_config(self, frame_name: str) -> FrameConfig:
+        """ return the object configuration as FrameConfig tuple, or None if the name not exists
+        :param frame_name: name of the object
+        :type frame_name: str
+        :return: the configuration as a FrameConfig or None if not exists
+        :rtype: FrameConfig
+        """
+        return self.frames_map.get(frame_name)
 
 # -----------------------------------------------------------
 # test program

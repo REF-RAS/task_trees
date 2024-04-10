@@ -17,7 +17,9 @@ A scene configuration file is divided into the root scene and custom subscene. T
 scene:
   ... variables of the root scene go here
     objects: 
-      ... optional definitions of objects and reference frames
+      ... optional definitions of objects (which are also reference frames)
+    frames:
+      ... optional definitions of reference frames
     named_poses:
       ... optional definitions of named poses
 
@@ -31,14 +33,15 @@ subscenes:
 
 ### Optional Branches Recognized by the Task Tree Manager
 
-The key `objects` under the root scene is recognized by the task tree manager `TaskTreesManager` class as definitions of collision objects and custom reference frames. In the task trees, collision objects are also recognized as custom reference frames. 
+The named branches of `objects`, `frames`, and `named_poses` have dedicated functions in the scene configuration.
 
-Similarly, the key `named_poses` under the root scene is also recognized by the task tree manager as the named poses adding to the arm commander.
+- The key `objects` under the root scene is recognized by the task tree manager `TaskTreesManager` class as definitions of collision objects. In the task trees, collision objects are also recognized as custom reference frames. 
+- The key `frames` under the root scene is recognized as definitions of custom reference frames. 
+- The key`named_poses` under the root scene is also recognized by the task tree manager as the named poses adding to the arm commander.
 
-Both of these branches are optional.
+The presence of these branches are optional.
 
-The `TaskTreesManager` class offers the functions `_define_objects` and `_define_named_poses` for defining the objects and named poses according to the scene configuration.
-
+The `TaskTreesManager` class offers the functions `_define_objects`, `_define_frames` and `_define_named_poses` for adding the objects, the custom reference frames, and named poses defined in the scene configuration.
 
 ### Specifying Configurations in the Root Scene and Subscenes
 
@@ -68,10 +71,12 @@ scene:
       frame: area_1
 subscenes:
 ```
-The scene configuration file below defines one subscene called 'area', in which several configuration keys are defined.
+A subscene is firstly a namespace for queries and key references. It should also be the reference frame to which the poses are defined.  The subscene name is usually either the name of a reference frame or a collision object. 
+
+The scene configuration file below defines one subscene called `area_1`, in which several configuration keys are defined. Note that `area_1` is a reference frame (a side effect of defining a collision object). Normally, pose keys such as `area_1.positions.start` and their subscene `area_1` are used together in using the move behaviours.
 ```
 subscenes:
-  area:
+  area_1:
     positions:
       hover: [null, null, 0.40]
       down: [null, null, 0.27]
@@ -83,13 +88,13 @@ subscenes:
 
 ### Collision Objects and Custom Reference Frames
 
-The collision object definition comprises the following mandatory keys headed by the name of the object.
+Collision object definitions comprise the following mandatory and optional keys headed by the name of the object.
 - `type`: `box`, `sphere`, or `object`
-- `model_file`: the path to the mesh file if the type is `object`
+- `model_file`: the path to the mesh file if the type is `object`, which supports full file path, package relative file path, the `file`, `package` and `http` uri.
 - `dimensions`: a list of length, width, and height for a `box`, the radius for a `sphere`, and the scaling factor as a list of 3 numbers for an `object`.
 - `xyz`: the position of the object
 - `rpy`: the orientation of the object  
-- `frame`: the reference frame against which the object pose is measured, where null implies the world frame. This field is optional.
+- `frame`: the reference frame for the object pose, where `null` implies the world frame. This field is optional.
 
 Every collision object will project its position and rotation as its own custom reference frames. The following defines the object named `area_1` and the fields are populated. Note that the null frame is default to the world frame.
 ```
@@ -101,7 +106,14 @@ Every collision object will project its position and rotation as its own custom 
       rpy: [0, 0, 3.14]
       frame: null
 ```
-A collision object can be defined under a subscene as well. The default frame is that subscene.
+Collision objects can be defined under a subscene as well. If `frame` is not given or its value is `null`, the subscene becomes the default frame.
+
+Custom reference frame definitions comprise the following mandatory and optional keys headed by the name of the frame.
+- `xyz`: the position of the object
+- `rpy`: the orientation of the object  
+- `parent` or `frame`: the reference frame for the object pose, where `null` implies the world frame. This field is optional.
+
+Similarly, custom reference frames can be defined under a subscene. The default frame is the parent subscene.
 
 ### Loading and Querying the Scene Configuration File
 
