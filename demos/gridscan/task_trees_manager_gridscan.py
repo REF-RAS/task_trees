@@ -163,7 +163,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
 
     def in_a_region(self, region) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, 
+        return pose_tools.in_region((current_pose.pose.position.x, current_pose.pose.position.y,),
                                     self.the_scene.query_config(region))  
     
     def on_or_above_z(self, position) -> bool:

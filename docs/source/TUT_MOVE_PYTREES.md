@@ -64,6 +64,7 @@ The program `simple_move_2.py` defines a sequence with two behaviours.
                     ],)
         return move_branch
 ```
+![Simple Move 2](../../demos/pytrees_moves/docs/TutorialSimpleMove2.gif)
 
 ## Example 3: Late Binding of the Target XYZ
 

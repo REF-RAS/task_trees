@@ -176,19 +176,58 @@ def same_joint_values_with_tolerence(joint_values_1:list, joint_values_2:list, t
             return False
     return True
 
-def in_region(x:float, y:float, bbox_as_list:list) -> bool:
-    """ Test if the point (x, y) is in the bbox
+# def in_region(x:float, y:float, bbox_as_list:list) -> bool:
+#     """ Test if the point (x, y) is in the bbox
     
-    :param x: the x value of the point
-    :type x: float
-    :param y: the y value of the point
-    :type y: float
-    :param bbox_as_list: the bounding square
-    :type bbox_as_list: (x1, y1, x2, y2)
-    :return: True if the point (x, y) is within the bbox
+#     :param x: the x value of the point
+#     :type x: float
+#     :param y: the y value of the point
+#     :type y: float
+#     :param bbox_as_list: the bounding square
+#     :type bbox_as_list: (x1, y1, x2, y2)
+#     :return: True if the point (x, y) is within the bbox
+#     :rtype: bool
+#     """
+#     return (bbox_as_list[0] <= x <= bbox_as_list[2]) and (bbox_as_list[1] <= y <= bbox_as_list[3])
+
+def in_region(point:list, bbox_as_list:list) -> bool:
+    """ Test if the point (x, y) or (x, y, z) is in the bbox
+    
+    :param point: the (x, y) or (x, y, z) value of the point
+    :type point: list of 2 or 3 numbers
+    :param bbox_as_list: the bounding square or bounding box
+    :type bbox_as_list: (x1, y1, x2, y2) or (x1, y1, z1, x2, y2, z2)
+    :return: True if the point is within the bbox
     :rtype: bool
     """
-    return (bbox_as_list[0] <= x <= bbox_as_list[2]) and (bbox_as_list[1] <= y <= bbox_as_list[3])
+    if bbox_as_list is None or type(bbox_as_list) not in (list, tuple) or point is None or type(point) not in (list, tuple):
+        return False
+    if len(bbox_as_list) == 4 and len(point) >= 2:
+        return (bbox_as_list[0] <= point[0] <= bbox_as_list[2]) and (bbox_as_list[1] <= point[1] <= bbox_as_list[3])
+    elif len(bbox_as_list) == 6 and len(point) >= 3:
+        return (bbox_as_list[0] <= point[0] <= bbox_as_list[3]) and (bbox_as_list[1] <= point[1] <= bbox_as_list[4]) and \
+              (bbox_as_list[2] <= point[2] <= bbox_as_list[5])
+    return False  
+
+def overlap_regions(bbox1_as_list, bbox2_as_list):
+    """ Test if two regions, 2d or 3d as bbox, are overlapped
+
+    :param bbox1_as_list: the bounding square or bounding box
+    :param bbox2_as_list: the bounding square or bounding box
+    :return: True of the two regions are overlapped
+    """
+    if bbox1_as_list is None or type(bbox1_as_list) not in (list, tuple) or bbox2_as_list is None or type(bbox2_as_list) not in (list, tuple):
+        return False
+    if len(bbox1_as_list) == 4 or len(bbox2_as_list) == 4:
+        if (bbox1_as_list[0] >= bbox2_as_list[2]) or (bbox1_as_list[2] <= bbox2_as_list[0]) or (bbox1_as_list[3] <= bbox2_as_list[1]) or (bbox1_as_list[1] >= bbox2_as_list[3]):
+            return False
+        return True
+    elif len(bbox1_as_list) == 6 and len(bbox2_as_list) == 6:
+        if (bbox1_as_list[0] >= bbox2_as_list[3]) or (bbox1_as_list[3] <= bbox2_as_list[0]) or (bbox1_as_list[4] <= bbox2_as_list[1]) or (bbox1_as_list[1] >= bbox2_as_list[4]) \
+            or (bbox1_as_list[2] >= bbox2_as_list[5]) or (bbox1_as_list[5] <= bbox2_as_list[2]):
+            return False
+        return True
+    return False        
 
 if __name__ == '__main__':
     rospy.init_node('test_node')

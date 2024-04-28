@@ -194,14 +194,14 @@ class PushBlockTaskTreesManager(TaskTreesManager):
 
     def in_a_region(self, logical_region) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, self.the_scene.query_config(logical_region))     
+        return pose_tools.in_region((current_pose.pose.position.x, current_pose.pose.position.y,), self.the_scene.query_config(logical_region))     
     
     def over_an_object(self, object_name) -> bool:
         the_object = self.the_scene.get_object_config(object_name)
         the_object_position_as_bbox = [the_object.xyz[0] - the_object.dimensions[0] / 2, the_object.xyz[1] - the_object.dimensions[1] / 2,
                                     the_object.xyz[0] + the_object.dimensions[0] / 2, the_object.xyz[1] + the_object.dimensions[1] / 2]
         current_pose = self.arm_commander.pose_of_robot_link()
-        return pose_tools.in_region(current_pose.pose.position.x, current_pose.pose.position.y, the_object_position_as_bbox)   
+        return pose_tools.in_region((current_pose.pose.position.x, current_pose.pose.position.y,), the_object_position_as_bbox)   
      
     def on_or_above_z(self, position) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
@@ -232,7 +232,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         the_target_position_as_bbox = [the_target_object.xyz[0] - the_target_object.dimensions[0] / 2, the_target_object.xyz[1] - the_target_object.dimensions[1] / 2,
                                     the_target_object.xyz[0] + the_target_object.dimensions[0] / 2, the_target_object.xyz[1] + the_target_object.dimensions[1] / 2]
         xyzrpy_of_the_object = self.arm_commander.pose_in_frame_as_xyzrpy('the_object')
-        return pose_tools.in_region(xyzrpy_of_the_object[0], xyzrpy_of_the_object[1], the_target_position_as_bbox)           
+        return pose_tools.in_region((xyzrpy_of_the_object[0], xyzrpy_of_the_object[1],), the_target_position_as_bbox)           
             
     def at_a_named_pose(self, named_pose) -> bool:
         joint_values = self.arm_commander.current_joint_positons_as_list()

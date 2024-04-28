@@ -121,6 +121,7 @@ class BasicTask():
         previous_state = None
         while True:
             if self.state in until_states:
+                logger.info(f'{type(self).__name__} (wait_for_completion): the waiting is finished (task_state: {self.state}) ...')                
                 return self.state
             if previous_state is None or previous_state != self.state:
                 logger.info(f'{type(self).__name__} (wait_for_completion): the thread is waiting (task_state: {self.state}) ...')
@@ -339,17 +340,24 @@ class TaskTreesManager(BasicTaskTreesManager):
         for name in named_poses:
             self.arm_commander.add_named_pose(name, named_poses[name])
             
-    def _define_objects(self, the_scene:Scene, object_type=None):
+    def _define_objects(self, the_scene:Scene, object_type=None, include_list:list=None, ignore_list:list=None):
         """ Define the collision objects in the arm commander as specified in the scene configuration file
 
-        :param the_scene: _description_
-        :param object_type: _description_, defaults to None
+        :param the_scene: the scene configuration object of the Scene class
+        :param include_list: the only frames to be included and subject to the ignore_list, defaults to None   
+        :param object_type: the object type to be included, defaults to None
         """
         if object_type is not None and type(object_type) is not list:
             object_type = [object_type]
+        if ignore_list is None:
+            ignore_list = []
         for object_name in the_scene.list_object_names():
             the_object = the_scene.get_object_config(object_name)
             if object_type is not None and the_object.type not in object_type:
+                continue
+            if include_list is not None and object_name not in include_list:
+                continue 
+            if object_name in ignore_list:
                 continue
             if the_object.type == 'box':
                 self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
@@ -360,13 +368,20 @@ class TaskTreesManager(BasicTaskTreesManager):
             else:
                 logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_object.type}"')
 
-    def _define_custom_frames(self, the_scene:Scene):
+    def _define_custom_frames(self, the_scene:Scene, include_list:list=None, ignore_list:list=None):
         """ Define the custom frames in the arm commander as specified in the scene configuration file
 
-        :param the_scene: _description_
-        :param object_type: _description_, defaults to None
+        :param the_scene: the scene configuration object of the Scene class
+        :param include_list: the only frames to be included and subject to the ignore_list, defaults to None       
+        :param ignore_list: the frames to be ignored, defaults to None
         """
+        if ignore_list is None:
+            ignore_list = []
         for frame_name in the_scene.list_frame_names():
+            if include_list is not None and frame_name not in include_list:
+                continue 
+            if frame_name in ignore_list:
+                continue
             the_frame = the_scene.get_frame_config(frame_name)
             self.arm_commander.add_custom_transform(frame_name, the_frame.xyz, the_frame.rpy, the_frame.parent)
         
