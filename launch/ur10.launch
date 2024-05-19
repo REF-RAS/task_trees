@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+    <include file="$(find ur10_moveit_config)/launch/demo.launch">
+        <arg name="use_rviz" default="false" />
+    </include>
+    <arg name="rvizconfig" default="$(find arm_commander)/launch/default.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+</launch>

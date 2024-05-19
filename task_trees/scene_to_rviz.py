@@ -11,15 +11,16 @@ __status__ = 'Development'
 
 import yaml, os, time
 from collections import defaultdict
-import rospy, tf
-from geometry_msgs.msg import Pose, PoseStamped
+import rospy, tf, tf2_ros
+from std_msgs.msg import Header
+from geometry_msgs.msg import Pose, PoseStamped, TransformStamped, Transform, Vector3, Quaternion
 from visualization_msgs.msg import Marker
 
 from task_trees.task_scene import Scene, ObjectConfig
 import tools.rviz_tools as rviz_tools
 from tools.logging_tools import logger
 from tools.rviz_tools import RvizVisualizer
-from tools.pose_tools import pose_to_xyzq, list_to_xyzq
+from tools.pose_tools import pose_to_xyzq, list_to_xyzq, pose_stamped_to_transform_stamped, list_to_pose_stamped
 from tools.rospkg_tools import PackageFile
 
 class SceneToRViz(RvizVisualizer):
@@ -41,8 +42,8 @@ class SceneToRViz(RvizVisualizer):
         self.is_world_publisher = False
         self.publishable_object_names = []
         # setup transform
-        self.tf_pub = tf.TransformBroadcaster()
-        self.tf_listener = tf.TransformListener()
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster()
+
         if self.base_frame is None:
             self.base_frame = 'world'
             self.is_world_publisher = True
@@ -53,9 +54,15 @@ class SceneToRViz(RvizVisualizer):
         self.timer_transform = rospy.Timer(rospy.Duration(pub_period), self._cb_timer_transform)
     
     # internal function: for publishing the transform regularly
+
     def _cb_timer_transform(self, event):
         if self.is_world_publisher:
-            self.tf_pub.sendTransform([0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1], rospy.Time.now(), self.base_frame, 'map')
+            header = Header()
+            header.frame_id = 'map'
+            header.stamp = rospy.Time.now()
+            transform_stamped = TransformStamped(header, self.base_frame, Transform(Vector3(0, 0, 0), Quaternion(0, 0, 0, 1)))
+            self.tf_broadcaster.sendTransform(transform_stamped)
+            self.is_world_publisher = False
         if self.is_transform_publisher:
             self._pub_transform_all_objects()
         self._pub_custom_transform()
@@ -76,20 +83,45 @@ class SceneToRViz(RvizVisualizer):
 
     # internal function: publish the transform of a specific named object
     def _pub_transform_object(self, name, pose, frame=None):
-        try:
-            # frame is ignored if pose is PoseStamped
-            if type(pose) == Pose:
-                xyzq = pose_to_xyzq(pose)
-            elif type(pose) == PoseStamped:
-                frame = pose.header.frame_id            
-                xyzq = pose_to_xyzq(pose.pose)
-            else:
-                xyzq = list_to_xyzq(pose)
-        except Exception:
-            logger.error(f'{__class__.__name__}: parameter (pose) is not list of length 6 or 7 or a Pose object -> fix the parameter at behaviour construction')
-            raise
+        """ publish the transform of an object
+
+        :param name: name of the object
+        :type name: str
+        :param pose: the pose of the object 
+        :type pose: Pose, PoseStamped, list of 6 or 7
+        :param frame: the frame against which the pose is defined, ignored if PoseStamped is provided, defaults to None
+        :type frame: str, optional
+        """
         frame = self.base_frame if frame is None else frame
-        self.tf_pub.sendTransform(xyzq[:3], xyzq[3:], rospy.Time.now(), name, frame)
+        if type(pose) in [list, tuple]:
+            pose_stamped = list_to_pose_stamped(pose, frame)
+        elif type(pose) == Pose:
+            pose_stamped = PoseStamped()
+            pose_stamped.header.frame_id = frame
+            pose_stamped.header.stamp = rospy.Time.now()
+            pose_stamped.pose = pose
+        elif type(pose) == PoseStamped:
+            frame = pose.header.frame_id
+            pose_stamped = pose
+        else:
+            rospy.logerr(f'{__class__.__name__}: parameter (pose) is not list of length 6 or 7 or a Pose object -> fix the parameter at behaviour construction')
+            raise TypeError(f'A parameter is invalid')
+        self.tf_broadcaster.sendTransform(pose_stamped_to_transform_stamped(pose_stamped, name))
+
+        # try:
+        #     # frame is ignored if pose is PoseStamped
+        #     if type(pose) == Pose:
+        #         xyzq = pose_to_xyzq(pose)
+        #     elif type(pose) == PoseStamped:
+        #         frame = pose.header.frame_id            
+        #         xyzq = pose_to_xyzq(pose.pose)
+        #     else:
+        #         xyzq = list_to_xyzq(pose)
+        # except Exception:
+        #     logger.error(f'{__class__.__name__}: parameter (pose) is not list of length 6 or 7 or a Pose object -> fix the parameter at behaviour construction')
+        #     raise
+        # frame = self.base_frame if frame is None else frame
+        # self.tf_pub.sendTransform(xyzq[:3], xyzq[3:], rospy.Time.now(), name, frame)
 
     # --------------------------------
     def set_publish_objects_transform(self, object_names:list=None):

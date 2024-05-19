@@ -1,14 +1,9 @@
 <launch>
     <arg name="namespace" default="task_trees" doc="The namespace for the project" />
     <arg name="use_gui" default="false" />
-    <arg name="use_rviz" default="true" /> 
+    <arg name="use_rviz" default="false" /> 
     <arg name="default" default="true" /> 
     <arg name="sim_robot" default="true" />          
-
-    <group if="$(arg default)">
-        <node pkg="robotarchi" type="robot_server_agent.py" name="robot_server_agent" output="screen">
-        </node>
-    </group>
 
     <group if="$(arg sim_robot)">
         <include file="$(find ur10_scene_config)/launch/demo.launch">
@@ -16,4 +11,7 @@
             <arg name="use_rviz" default="$(arg use_rviz)" />
         </include>
     </group>
+    
+    <arg name="rvizconfig" default="$(find arm_commander)/launch/default.rviz" />
+    <node if="$(arg use_rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
 </launch>   

@@ -10,9 +10,9 @@ __email__ = 'ak.lui@qut.edu.au'
 __status__ = 'Development'
 
 import math
-import rospy, tf
+import rospy
 import tf.transformations 
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
+from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion, TransformStamped, Transform, Vector3, PointStamped
 
 def list_to_pose(pose) -> Pose:
     """ Convert a pose in xyzrpy or xyzq format to Pose
@@ -90,6 +90,30 @@ def list_to_xyzrpy(pose) -> list:
         return pose
     else:
         return pose[:3] + list(tf.transformations.euler_from_quaternion(pose[3:]))
+
+def transform_to_pose_stamped(transform:TransformStamped) -> PoseStamped:
+    """ Convert a TransformStamped object into PoseStamped object
+
+    """
+    point = Point(transform.transform.translation.x, transform.transform.translation.y, transform.transform.translation.z)
+    quaternion = Quaternion(transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z, transform.transform.rotation.w)
+    return PoseStamped(transform.header, Pose(point, quaternion))
+
+def pose_stamped_to_transform_stamped(pose_stamped:PoseStamped, reference_frame:str) -> TransformStamped:
+    """ Convert a PoseStamped object into TransformStamped object
+
+    """
+    translation = Vector3(pose_stamped.pose.position.x, pose_stamped.pose.position.y, pose_stamped.pose.position.z)
+    transform = Transform(translation, pose_stamped.pose.orientation)
+    transform_stamped = TransformStamped(pose_stamped.header, reference_frame, transform)
+    return transform_stamped   
+
+def pose_stamped_to_point_stamped(pose_stamped:PoseStamped) -> PointStamped:
+    """ Convert a PoseStamped object into PointStamped object
+
+    """    
+    point_stamped = PointStamped(pose_stamped.header, pose_stamped.pose.position)
+    return point_stamped
 
 def same_rpy_with_tolerence(rpy_1:list, rpy_2:list, tolerance:float=0.01) -> bool:
     """ Test if two euler's angles are the same
