@@ -17,11 +17,11 @@ from geometry_msgs.msg import Pose, PoseStamped, TransformStamped, Transform, Ve
 from visualization_msgs.msg import Marker
 
 from task_trees.task_scene import Scene, ObjectConfig
-import tools.rviz_tools as rviz_tools
-from tools.logging_tools import logger
-from tools.rviz_tools import RvizVisualizer
-from tools.pose_tools import pose_to_xyzq, list_to_xyzq, pose_stamped_to_transform_stamped, list_to_pose_stamped
-from tools.rospkg_tools import PackageFile
+import task_trees.tools.rviz_tools as rviz_tools
+from task_trees.tools.logging_tools import logger
+from task_trees.tools.rviz_tools import RvizVisualizer
+from task_trees.tools.pose_tools import pose_to_xyzq, list_to_xyzq, pose_stamped_to_transform_stamped, list_to_pose_stamped
+from task_trees.tools.rospkg_tools import PackageFile
 
 class SceneToRViz(RvizVisualizer):
     """ The helper class for managing visualization of scene configs in rviz

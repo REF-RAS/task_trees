@@ -17,15 +17,11 @@ from py_trees.composites import Sequence, Parallel, Composite, Selector
 
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
-import arm_commander.tools.moveit_tools as moveit_tools
 
-from task_trees.states import TaskStates
-from task_trees.behaviours_base import SimAttachObject, SimDetachObject, PrintPosesInFrame, PrintPose
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoMoveXYZRPY, DoRotate
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
 from task_trees.scene_to_rviz import SceneToRViz
-import tools.pose_tools as pose_tools
 # -------------------------------------
 # Tasks specialized for this demo
 
@@ -44,7 +40,7 @@ class MoveNamedPoseTask(BasicTask):
 # ----------------------------------------
 # The TaskManager specialized for this application
 class RVizTaskTreesManager(TaskTreesManager):
-    """ This is a subclass specialized for the pick-n-drop application
+    """ This is a subclass specialized for the rviz demo
     """
     def __init__(self, arm_commander:GeneralCommander, spin_period_ms:int=10):
         """ the constructor
@@ -90,7 +86,7 @@ class RVizTaskTreesManager(TaskTreesManager):
         :rtype: unspecified as defined by the specific subclass of BasicTask
         """
         if self.the_blackboard.exists('task'):
-            return self.the_blackboard.task.get_goal_as_logical_pose()
+            return self.the_blackboard.task.get_param()
         raise TypeError(f'unable to query logical pose due to no task has been submitted')
 
     # -------------------------------------------------

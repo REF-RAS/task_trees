@@ -1,0 +1,90 @@
+---
+scene:
+  named_poses: 
+    stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
+    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+  regions:
+    workspace: [-0.5, -0.75, -0.1, 1.0, 0.5, 1.0]  # min_x, min_y, min_z, max_x, max_y, max_z
+    inner: [-0.5, -0.75, 0.30, 0.5]  # min_x, min_y, max_x, max_y
+  rotations:
+    # alpha: [3.14, null, 0.78] 
+    # beta: [3.14, null, -0.78]
+    alpha: [3.14, 0, -0.785] 
+    beta: [3.14, 0, 2.358]      
+  push_block:
+      dimensions: [0.05, 0.05, 0.05]
+      xyz: [0.0, 0.025, 0.151]
+      rpy: [0, 0, 0]
+  objects:
+    block_1:
+      type: box
+      model_file: null
+      dimensions: [0.10, 0.10, 0.35]
+      xyz: [0.4, -0.10, 0.175]
+      rpy: [0, 0, 0]
+    block_2:
+      type: box
+      model_file: null
+      dimensions: [0.10, 0.10, 0.35]
+      xyz: [0.6, -0.10, 0.175]
+      rpy: [0, 0, 0]
+    block_3:
+      type: box
+      model_file: null
+      dimensions: [0.10, 0.10, 0.35]
+      xyz: [0.6, 0.10, 0.175]
+      rpy: [0, 0, 0]
+    block_4:
+      type: box
+      model_file: null
+      dimensions: [0.10, 0.10, 0.35]
+      xyz: [0.4, 0.10, 0.175]
+      rpy: [0, 0, 0]
+    area_1:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.4, 0.0, 0.125]
+      rpy: [0, 0, 1.57]
+    area_2:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.50, -0.10, 0.125]
+      rpy: [0, 0, 3.14]
+    area_3:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.6, 0.0, 0.125]
+      rpy: [0, 0, -1.57]
+    area_4:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.50, 0.10, 0.125]
+      rpy: [0, 0, 0]   
+    area_5:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.50, 0.0, 0.125]
+      rpy: [0, 0, 0]         
+subscenes:
+  area:
+    positions:
+      hover: [null, null, 0.40]
+      down: [null, null, 0.27]
+      start: [0, 0.11, null]
+      centre: [0, -0.015, null] # -0.01
+      restart: [0, -0.185, null]
+      end: [0, -0.06, null]
+  area_1:
+    rotation: rotations.alpha
+  area_2:
+    rotation: rotations.beta
+  area_3:
+    rotation: rotations.beta
+  area_4:
+    rotation: rotations.alpha
+

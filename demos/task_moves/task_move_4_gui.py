@@ -15,7 +15,7 @@ import time, signal
 from graphics import *
 import rospy
 from std_msgs.msg import Int8
-from tools.logging_tools import logger
+from task_trees.tools.logging_tools import logger
 
 # Require the python Tkinter module
 # sudo apt install python3-tk

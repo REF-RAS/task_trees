@@ -22,8 +22,8 @@ from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ
 from task_trees.task_trees_manager import TaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
 from task_trees.scene_to_rviz import SceneToRViz
-import tools.pose_tools as pose_tools
-from demos.pickndrop.behaviours_pnd import DoScanProgram
+import task_trees.tools.pose_tools as pose_tools
+from behaviours_pnd import DoScanProgram
 from scan_model import SingleLineScanModel, SteppingScanModel, FourCornersScanModel
 
 # -------------------------------------
@@ -52,6 +52,8 @@ class PickUpObjectTask(BasicTask):
     def __init__(self, xyz_world:list): 
         super(PickUpObjectTask, self).__init__()
         self.xyz = xyz_world
+    def get_xyz(self):
+        return self.xyz
         
         
 class DropObjectTask(BasicTask):
@@ -62,7 +64,9 @@ class DropObjectTask(BasicTask):
 class MovePoseTask(BasicTask):
     def __init__(self, xyz_world:list): 
         super(MovePoseTask, self).__init__()
-        self.xyz = xyz_world        
+        self.xyz = xyz_world
+    def get_xyz(self):
+        return self.xyz
 
 # ----------------------------------------
 # The TaskManager specialized for this application
@@ -161,7 +165,7 @@ class PNDTaskTreesManager(TaskTreesManager):
         :rtype: unspecified as defined by the specific subclass of BasicTask
         """
         if self.the_blackboard.exists('task'):
-            return self.the_blackboard.task.get_goal_as_logical_pose()
+            return self.the_blackboard.task.get_param()
         raise TypeError(f'unable to query logical pose due to no task has been submitted')
     
     # return the target position of the accepted task, or raise TypeError if no task is submitted

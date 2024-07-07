@@ -17,21 +17,19 @@ from py_trees.trees import BehaviourTree
 
 from task_trees.behaviours_base import *
 from task_trees.states import TaskStates, COMPLETION_STATES
-from tools.logging_tools import logger
+from task_trees.tools.logging_tools import logger
 
 # -- The abstract class for implementing project specific Task for the TaskTreesManager
 class BasicTask():
     """ It defines the essential parameters for the lifecycle management by the TaskTreesManager
     :meta private: 
     """
-    def __init__(self, goal_as_logical_pose=None):
+    def __init__(self, param=None):
         
         self.task_lock = threading.Lock()
         # task parameters
         self.name = self.__class__                          # the class name for identification of the task
-        self.goal_as_logical_pose = goal_as_logical_pose    # the main goal of the task - assume to be a logical pose
-        self.xyz = None                                     # the mapped physical pose in xyz format
-        self.rpy = None                                     # the mapped physical pose in euler angles in rpy order 
+        self.param = param                                  # arbitrary param of the task
         # task state
         self.state = TaskStates.STANDBY                     # the init state
         self.result = ''                                    # the task result, which will be assigned by the TaskTreesManager at completion
@@ -86,27 +84,13 @@ class BasicTask():
         logger.error('This task has not been submitted -> check program logic')
         return False
 
-    def get_goal_as_logical_pose(self):
-        """ returns the main goal of the task, which is an logical pose
+    def get_param(self):
+        """ returns the param of the task
 
-        :return: the goal as a logical pose
+        :return: the param of the task
         :rtype: arbitrary, dependent on the subclass definition
         """
-        return self.goal_as_logical_pose
-    
-    def get_xyz(self) -> list:
-        """ return the position of the target pose in xyz 
-        :return: the position of the target pose in xyz 
-        :rtype: list
-        """
-        return self.xyz
-    
-    def get_rpy(self) -> list:
-        """ return the orientation part of the target pose 
-        :return: the orientation part of the target pose 
-        :rtype: list
-        """
-        return self.rpy
+        return self.param
     
     def wait_for_completion(self, until_states:list=None):
         """ a blocking function that returns when the task has entered into one of the :param:until_states

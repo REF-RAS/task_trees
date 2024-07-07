@@ -14,7 +14,7 @@ from std_msgs.msg import Float32
 from geometry_msgs.msg import Pose, PoseStamped
 # robot control module
 from task_trees.behaviours_base import ConditionalCommanderBehaviour, SceneConditionalCommanderBehaviour, PrintPose
-from tools.logging_tools import logger
+from task_trees.tools.logging_tools import logger
 
 # ----------------------------------------------------------------------
 # Move Behaviour Classes for robot arm manipulation applications

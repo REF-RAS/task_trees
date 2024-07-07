@@ -15,8 +15,8 @@ from std_msgs.msg import Float32
 from py_trees.common import Status
 # robot control module
 from task_scene_gridscan import GridScanScene
-from tools.logging_tools import logger
-from demos.gridscan.behaviours_gridscan import DoMoveTankGrid
+from task_trees.tools.logging_tools import logger
+from behaviours_gridscan import DoMoveTankGrid
 
 # -----------------------------------------------------------------------------------------------------
 # Advanced behaviours for illustrating the versatility of the ConditionalCommanderBehaviour base class

@@ -11,7 +11,7 @@ __status__ = 'Development'
 
 import yaml, os, numbers
 from collections import namedtuple, defaultdict
-from tools.logging_tools import logger
+from task_trees.tools.logging_tools import logger
 
 # namedtuples for internal data structure for higher readability
 ObjectConfig = namedtuple('ObjectConfig', ['name', 'type', 'model_file', 'dimensions', 'xyz', 'rpy', 'frame']) # representing an object

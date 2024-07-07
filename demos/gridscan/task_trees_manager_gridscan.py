@@ -23,11 +23,11 @@ from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ, DoRotate, DoM
 from task_trees.behaviours_base import *
 from task_trees.task_trees_manager import BasicTaskTreesManager, TaskTreesManager, BasicTask, TaskStates
 from task_trees.scene_to_rviz import SceneToRViz
-from demos.gridscan.behaviours_gridscan import SimCalibrate, DoMoveTankGrid
-from demos.gridscan.behaviours_advanced import DoMoveTankGridVisualCDROS
+from behaviours_gridscan import SimCalibrate, DoMoveTankGrid
+from behaviours_advanced import DoMoveTankGridVisualCDROS
 
-from tools.logging_tools import logger
-import tools.pose_tools as pose_tools
+from task_trees.tools.logging_tools import logger
+import task_trees.tools.pose_tools as pose_tools
 # -------------------------------------
 # Tasks specialized for this application 
 
@@ -55,6 +55,7 @@ class MoveNamedPoseTask(BasicTask):
 class MoveGridPoseTask(BasicTask):
     def __init__(self, tile_x:int, tile_y:int, cell_x:int, cell_y:int): 
         super(MoveGridPoseTask, self).__init__([tile_x, tile_y, cell_x, cell_y])
+    
 
 # ----------------------------------------
 # The TaskManager specialized for this application
@@ -118,20 +119,20 @@ class GridScanTaskTreesManager(TaskTreesManager):
         """
         if not self.the_blackboard.exists('task'):
             raise TypeError(f'unable to query logical pose due to no task has been submitted')
-        return self.the_blackboard.task.get_goal_as_logical_pose()
+        return self.the_blackboard.task.get_param()
 
     # return the logical rotation of the accepted task, or raise TypeError if no task is submitted   
     def query_logical_rpy_of_task(self):
         if not self.the_blackboard.exists('task'):
             raise TypeError(f'unable to query logical rotation due to no task has been submitted')            
-        grid_position = self.the_blackboard.task.get_goal_as_logical_pose()   
+        grid_position = self.the_blackboard.task.get_param()   
         rpy = self.the_scene.compute_rpy_from_grid_position(grid_position)
         return rpy
 
     # internal function for obtaining the logical pose of the current task as xyzrpy
     def _get_task_target_xyzrpy(self) -> list:
         if self.the_blackboard.exists('task'):
-            logical_pose = self.the_blackboard.task.get_goal_as_logical_pose()
+            logical_pose = self.the_blackboard.task.get_param()
             return self.the_scene.compute_xyzrpy_from_grid_position(logical_pose)
         return False
     

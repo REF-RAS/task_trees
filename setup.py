@@ -7,7 +7,7 @@ req_packages = [
 
 # fetch values from package.xml
 setup_args = generate_distutils_setup(
-    packages=['task_trees', 'demos', 'tools'],
+    packages=['task_trees'],
     package_dir={'': '.'},
     python_requires='>=3.9',
     install_requires=req_packages

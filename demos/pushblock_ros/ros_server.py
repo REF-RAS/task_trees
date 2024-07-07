@@ -17,7 +17,7 @@ import rospy, actionlib
 from arm_commander.commander_moveit import GeneralCommander, logger
 from task_trees.msg import TaskAction, TaskGoal, TaskResult
 from task_trees.states import COMPLETION_STATES
-from demos.pushblock.task_trees_manager_pushblock import *
+from task_trees.demos.pushblock.task_trees_manager_pushblock import *
 
 class PushBlockROSServer():
     """ The server side of the application program for the PushBlock Demo that implements the behaviour tree

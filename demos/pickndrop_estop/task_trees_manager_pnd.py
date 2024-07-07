@@ -18,14 +18,14 @@ from py_trees.composites import Sequence, Parallel, Composite, Selector
 
 # robot control module
 from arm_commander.commander_moveit import GeneralCommander, logger
-import tools.pose_tools as pose_tools
+import task_trees.tools.pose_tools as pose_tools
 
 from task_trees.behaviours_base import SimAttachObject, SimDetachObject
 from task_trees.behaviours_move import DoMoveNamedPose, DoMoveXYZ
 from task_trees.task_trees_manager import GuardedTaskTreesManager, BasicTask
 from task_trees.task_scene import Scene
 
-from demos.pickndrop.behaviours_pnd import DoScanProgram
+from behaviours_pnd import DoScanProgram
 from scan_model import SingleLineScanModel, SteppingScanModel, FourCornersScanModel
 
 # -------------------------------------
@@ -54,18 +54,20 @@ class PickUpObjectTask(BasicTask):
     def __init__(self, xyz_world:list): 
         super(PickUpObjectTask, self).__init__()
         self.xyz = xyz_world
-        
+    def get_xyz(self):
+        return self.xyz
         
 class DropObjectTask(BasicTask):
     def __init__(self): 
         super(DropObjectTask, self).__init__()
-        
                
 class MovePoseTask(BasicTask):
     def __init__(self, xyz_world:list): 
         super(MovePoseTask, self).__init__()
         self.xyz = xyz_world        
-
+    def get_xyz(self):
+        return self.xyz
+    
 # ----------------------------------------
 # The TaskManager specialized for this application
 class PNDTaskTreesManager(GuardedTaskTreesManager):
@@ -157,7 +159,7 @@ class PNDTaskTreesManager(GuardedTaskTreesManager):
         :rtype: unspecified as defined by the specific subclass of BasicTask
         """
         if self.the_blackboard.exists('task'):
-            return self.the_blackboard.task.get_goal_as_logical_pose()
+            return self.the_blackboard.task.get_param()
         raise TypeError(f'unable to query logical pose due to no task has been submitted')
     
     # return the target position of the accepted task, or raise TypeError if no task is submitted
