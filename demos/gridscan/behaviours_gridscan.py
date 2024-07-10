@@ -43,18 +43,20 @@ class SimCalibrate(Behaviour):
         self.the_blackboard.register_key(key='tank', access=py_trees.common.Access.WRITE)        
         # attach robot agent
         self.arm_commander = arm_commander
-        self.the_scene = scene
+        self.the_scene:GridScanScene = scene
 
     # the concrete implementation that contains the logic of the simulated calibration
     def update(self):
         logger.info(f'SimCalibrate: found tank at pose: ')  
         # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)  
-            if the_object.name == 'tank':
-                self.the_blackboard.set('tank', the_object)
+        for scene_name in self.the_scene.list_scene_names():
+            link_of_scene = self.the_scene.get_link_of_scene(scene_name)
+            if link_of_scene is None:
+                continue
+            if link_of_scene.type == 'box':
+                self.arm_commander.add_box_to_scene(scene_name, link_of_scene.dimensions, link_of_scene.xyz, link_of_scene.rpy, link_of_scene.parent_frame)  
+            if link_of_scene.name == 'tank':
+                self.the_blackboard.set('tank', link_of_scene)
         self.the_blackboard.task.result = '12'
         return Status.SUCCESS
 

@@ -320,37 +320,40 @@ class TaskTreesManager(BasicTaskTreesManager):
 
         :param the_scene: the scene configuration object of the Scene class
         """
-        named_poses = the_scene.get_named_poses_as_dict()
+        named_poses = the_scene.get_named_poses_of_root_as_dict()
         for name in named_poses:
             self.arm_commander.add_named_pose(name, named_poses[name])
             
-    def _define_objects(self, the_scene:Scene, object_type=None, include_list:list=None, ignore_list:list=None):
+    def _define_links(self, the_scene:Scene, link_type=None, include_list:list=None, ignore_list:list=None):
         """ Define the collision objects in the arm commander as specified in the scene configuration file
 
         :param the_scene: the scene configuration object of the Scene class
         :param include_list: the only frames to be included and subject to the ignore_list, defaults to None   
-        :param object_type: the object type to be included, defaults to None
+        :param link_type: the link_type to be included, defaults to None
         """
-        if object_type is not None and type(object_type) is not list:
-            object_type = [object_type]
+        if link_type is not None and type(link_type) is not list:
+            link_type = [link_type]
         if ignore_list is None:
             ignore_list = []
-        for object_name in the_scene.list_object_names():
-            the_object = the_scene.get_object_config(object_name)
-            if object_type is not None and the_object.type not in object_type:
+        for scene_name in the_scene.list_scene_names():
+            the_link = the_scene.get_link_of_scene(scene_name)
+            if the_link is None:
                 continue
-            if include_list is not None and object_name not in include_list:
+            
+            if link_type is not None and the_link.type not in link_type:
+                continue
+            if include_list is not None and scene_name not in include_list:
                 continue 
-            if object_name in ignore_list:
+            if scene_name in ignore_list:
                 continue
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
-            elif the_object.type == 'sphere':
-                self.arm_commander.add_sphere_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.frame)
-            elif the_object.type == 'object':
-                self.arm_commander.add_object_to_scene(object_name, the_object.model_file, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
+            if the_link.type == 'box':
+                self.arm_commander.add_box_to_scene(scene_name, the_link.dimensions, the_link.xyz, the_link.rpy, the_link.parent_frame)
+            elif the_link.type == 'sphere':
+                self.arm_commander.add_sphere_to_scene(scene_name, the_link.dimensions, the_link.xyz, the_link.parent_frame)
+            elif the_link.type == 'object':
+                self.arm_commander.add_object_to_scene(scene_name, the_link.model_file, the_link.dimensions, the_link.xyz, the_link.rpy, the_link.parent_frame)
             else:
-                logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_object.type}"')
+                logger.warning(f'TaskTreesManager (_define_objects): unrecognize object type "{the_link.type}"')
 
     def _define_custom_frames(self, the_scene:Scene, include_list:list=None, ignore_list:list=None):
         """ Define the custom frames in the arm commander as specified in the scene configuration file
@@ -366,8 +369,8 @@ class TaskTreesManager(BasicTaskTreesManager):
                 continue 
             if frame_name in ignore_list:
                 continue
-            the_frame = the_scene.get_frame_config(frame_name)
-            self.arm_commander.add_custom_transform(frame_name, the_frame.xyz, the_frame.rpy, the_frame.parent)
+            the_frame_link = the_scene.get_link_of_frame(frame_name)
+            self.arm_commander.add_custom_transform(frame_name, the_frame_link.xyz, the_frame_link.rpy, the_frame_link.parent_frame)
         
     def _set_initialize_branch(self, branch:Composite):
         """ Set or replace a branch to be the initialization branch of the behaviour tree of this manager

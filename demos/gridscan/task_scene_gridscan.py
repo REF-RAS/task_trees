@@ -28,7 +28,7 @@ class GridScanScene(Scene):
         super(GridScanScene, self).__init__(scene_config_file)
         # -- prepare internal data structures for efficiency
         # tank configuration
-        self.tank_config = self.subscene_config['tank']
+        self.tank_config = self.scenes_branch['tank']
         # tile_step size
         self.step_size_x = self.tank_config['tile']['step_size_x']
         self.step_size_y = self.tank_config['tile']['step_size_y']

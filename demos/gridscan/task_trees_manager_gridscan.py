@@ -189,7 +189,7 @@ class GridScanTaskTreesManager(TaskTreesManager):
     
     def at_angle(self, rotation_pose) -> bool:
         current_xyzrpy = self.arm_commander.pose_in_frame_as_xyzrpy(reference_frame='tank')
-        rotation_rpy = self.the_scene.query_rotation_as_rpy(rotation_pose)
+        rotation_rpy = self.the_scene.query_config(rotation_pose)
         for index in range(len(rotation_rpy)):
             if rotation_rpy[index] is None:
                 continue

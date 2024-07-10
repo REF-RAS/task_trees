@@ -14,9 +14,9 @@ from collections import namedtuple, defaultdict
 from task_trees.tools.logging_tools import logger
 
 # namedtuples for internal data structure for higher readability
-ObjectConfig = namedtuple('ObjectConfig', ['name', 'type', 'model_file', 'dimensions', 'xyz', 'rpy', 'frame']) # representing an object
-FrameConfig = namedtuple('FrameConfig', ['name', 'xyz', 'rpy', 'parent'])
-SceneName = namedtuple('SceneName', ['subscene', 'path'])
+SceneKeyParts = namedtuple('SceneKeyParts', ['scene', 'parts'])
+LinkConfig = namedtuple('LinkConfig', ['name', 'type', 'model_file', 'dimensions', 'xyz', 'rpy', 'parent_frame'])   # representing the scene
+FrameConfig = namedtuple('FrameConfig', ['name', 'type', 'xyz', 'rpy', 'parent_frame'])
 
 class Scene():
     """ The base model provides mapping between physical/joint-space pose and various named/logical poses.
@@ -31,288 +31,227 @@ class Scene():
         if scene_config_file is None:
             scene_config_file = os.path.join(os.path.dirname(__file__), '../demos/gridscan/task_scene.yaml')
         with open(scene_config_file, 'r') as f:
-            config = yaml.safe_load(f)
-        self.config = config
-        # if the default scene is defined in the file, define a variable for the default
-        self.scene_config = self.config['scene'] if 'scene' in self.config else None
-        # if subscenes are defined in the file, define another variable for that
-        self.subscene_config = self.config['subscenes'] if 'subscenes' in self.config else None
-        # preprocess the objects and frames
-        self.objects_map = self._process_objects()
-        self.frames_map = self._process_frames()
+            self.config_file_root = yaml.safe_load(f)
+        # print warning message
+        self._print_warning()
+        # valiate that there is a key 'scenes'
+        if 'scenes' not in self.config_file_root:
+            logger.error(f'The config file should contain a "scenes" key at the top level')
+            raise AssertionError(f'Invalid yaml config file: missing the key "scenes"')
+        self.scenes_branch = self.config_file_root['scenes']
+        # valiate that there is a 'root' scene
+        if 'root' not in self.scenes_branch:
+            logger.error(f'The config file should contain a "root" scene defined under "scenes" key at the top level')
+            raise AssertionError(f'Invalid yaml config file: missing the "root" scene')
+        self.root_scene_config = self.scenes_branch['root']        
+        # model parameters
+        self.scenes_dict = defaultdict(lambda: None)
+        self.scenes_linkconfig = defaultdict(lambda: None)
+        self.frames_config = defaultdict(lambda: None)
+        # iterates all scenes in the config file
+        for key in self.scenes_branch.keys():
+            self.scenes_dict[key] = self.scenes_branch[key]  
+            link_config = self._extract_link_config(key, self.scenes_branch[key])
+            if link_config is not None:
+                if link_config.type == 'frame':
+                    self.frames_config[key] = link_config
+                else:
+                    self.scenes_linkconfig[key] = link_config
 
-    # internal function: parse a dot-separated config name (path) into two parts, the subscene and a list of the path
-    def _parse_config_name(self, config_name:str) -> SceneName:
-        if config_name is None:
-            return None
-        parts = config_name.split('.')
-        # print(f'_parse_config_name: {config_name} {parts} {parts[0]} {self.subscene_config}')
-        if self.subscene_config is not None and len(parts) > 1 and (parts[0] in self.subscene_config.keys()): # one of the subscenes
-            return SceneName(parts[0], parts[1:])
+    # internal function: parse a dot-separated config kay (path) into scene name and a list of the parts 
+    def _parse_config_key(self, config_key:str) -> SceneKeyParts:
+        assert config_key is not None, 'Parameter (config_key) should not be None'
+        parts = config_key.split('.')
+        assert len(parts) >= 1, 'Parameter (config_key) is empty'
+        scene_name = parts[0]
+        if scene_name not in self.scenes_dict:
+            # the first name is not a known scene, assume that the root scene is inferred
+            scene_name = 'root'
+            return SceneKeyParts(scene_name, parts)
         else:
-            return SceneName(None, parts)
+            return SceneKeyParts(scene_name, parts[1:])
         
     # -------------------------------------------
-    # functions for extracting objects and frames
+    # internal functions for extracting objects and frames
 
+    def _extract_link_config(self, scene_name:str, scene_dict:dict) -> LinkConfig:
+        return self._create_link_config(scene_name, scene_dict.get('link', None))
+    
     # internal function: extract and validate an object definition
-    def _create_object_config(self, obj:dict) -> ObjectConfig:
-        if obj is None:
+    def _create_link_config(self, scene_name:str, link_dict:dict) -> LinkConfig:
+        if link_dict is None or scene_name is None:
             return None
-        if 'name' not in obj:
-            logger.error(f'Scene (_process_an_object): the keys in the object config contains no "name"')
-            return None
-        if 'type' not in obj or 'xyz' not in obj or 'rpy' not in obj or 'dimensions' not in obj:
-            logger.error(f'Scene (_process_an_object): the keys in the object config ({obj["name"]}) contains no "type", "xyz", "rpy", "dimensions"')
+        # if 'name' not in link_dict:
+        #     logger.error(f'Scene (_process_an_object): the keys in the link config contains no "name"')
+        #     return None
+        if 'type' not in link_dict or 'xyz' not in link_dict or 'rpy' not in link_dict:
+            logger.error(f'Scene (_process_an_object): the keys in the scene config ({link_dict["name"]}) contains no "type", "xyz", "rpy"')
             return None 
-        if obj['type'] not in ['box', 'sphere', 'object']:
-            logger.error(f'Scene (_process_an_object): the type of the object ({obj["name"]}) is not one of "sphere", "box", or "object"')
-            return None             
-        model_file = obj.get('model_file', None)
-        if obj['type'] == 'object' and model_file is None:
-            logger.error(f'Scene (_process_an_object): the object ({obj["name"]}) expects a valid "model_file" key')
+        if link_dict['type'] not in ['box', 'sphere', 'object', 'frame']:
+            logger.error(f'Scene (_process_an_object): the type of the scene ({link_dict["name"]}) is not one of "sphere", "box", "frame", or "object"')
+            return None 
+        if link_dict['type'] in ['box', 'sphere', 'object'] and 'dimensions' not in link_dict:
+            logger.error(f'Scene (_process_an_object): the keys in the box, sphere or object typed scene link ({link_dict["name"]}) contains no "dimensions"')
+            return None    
+        model_file = link_dict.get('model_file', None)
+        if link_dict['type'] == 'object' and model_file is None:
+            logger.error(f'Scene (_process_an_object): the scene link ({link_dict["name"]}) expects a valid "model_file" key')
             return None
-        return ObjectConfig(obj['name'], obj['type'], model_file, obj['dimensions'], obj['xyz'], obj['rpy'], obj.get('frame', None))
-
-    def _extract_objects_dict(self, source_object_config:dict, the_map:dict, subscene:str=None) -> ObjectConfig:
-        # assume object_config is a dict
-        for name in source_object_config:
-            obj = source_object_config[name]
-            obj['name'] = name
-            if 'frame' not in obj:
-                obj['frame'] = subscene
-            object_config = self._create_object_config(obj)
-            if object_config:
-                if subscene is None:
-                    the_map[name] = object_config
-                else:
-                    the_map[f'{subscene}.{name}'] = object_config
-
-    def _extract_objects_list(self, source_object_config:list, the_map:dict, subscene:str=None) -> ObjectConfig:          
-        # assume object_config is a list
-        for obj in source_object_config:
-            name = obj['name']
-            if 'frame' not in obj:
-                obj['frame'] = subscene
-            object_config = self._create_object_config(obj)
-            if object_config:
-                if subscene is None:
-                    the_map[name] = object_config
-                else:
-                    the_map[f'{subscene}.{name}'] = object_config     
+        parent_name = link_dict.get('parent_frame', link_dict.get('frame', None))  # both parent_frame and frame are acceptable
+        if parent_name is not None and parent_name == 'root' and 'root' not in self.scenes_linkconfig:
+            parent_name = None
+        dimensions = link_dict.get('dimensions', None)
+        return LinkConfig(scene_name, link_dict['type'], model_file, dimensions, link_dict['xyz'], link_dict['rpy'], parent_name)
 
     def _print_warning(self) -> None:
         if not hasattr(self, 'warned'):
             self.warned = True
-            logger.warning(f'''Scene configuration file format changed. 
-            Objects are defined using a dict structure instead of a list structure.
-            objects:
-                name:
-                    type: ...
-                    xyz: ...
+            logger.warning(f'''Scene configuration file format changed in task_trees 0.2.x. 
+            The subscene concept is removed and scenes are equal in the yaml file
+            scenes:
+                scene_1_name:
+                    link: ...
+                    other_params: ...
                     ...
-            The old format will not be acceptable in the future. Update the file is recommended.''')
-
-    # internal function: returns a map of (name, ObjectConfig) of objects defined in the config file
-    def _process_objects(self) -> dict:
-        the_map = dict()
-        # process the main scene
-        if self.scene_config is not None and 'objects' in self.scene_config:
-            object_config = self.scene_config['objects']
-            if type(object_config) in (tuple, list):
-                self._extract_objects_list(object_config, the_map)
-                self._print_warning()
-            else:
-                self._extract_objects_dict(object_config, the_map)
-        
-        # process each subscene
-        if self.subscene_config is not None:
-            for subscene in self.subscene_config.keys():
-                if self.subscene_config[subscene] is None:
-                    continue
-                if 'objects' in self.subscene_config[subscene]:
-                    object_config = self.subscene_config[subscene]['objects']
-                    if type(object_config) in (tuple, list):
-                        self._extract_objects_list(object_config, the_map, subscene)
-                        self._print_warning()
-                    else:
-                        self._extract_objects_dict(object_config, the_map, subscene)
-        return the_map    
-
-    def _extract_frames_dict(self, source_frame_config:dict, the_map:dict, subscene:str=None) -> FrameConfig:
-        # assume object_config is a dict
-        for name in source_frame_config:
-            obj = source_frame_config[name]
-            obj['name'] = name
-            if 'frame' in obj:
-                obj['parent'] = obj['frame']
-            if 'parent' not in obj:
-                obj['parent'] = subscene
-            if 'xyz' not in obj or 'rpy' not in obj:
-                logger.error(f'Scene (_extract_frames_dict): the keys in the object config ({obj["name"]}) contains no "xyz" or "rpy"')
-                return None            
-            frame_config = FrameConfig(obj['name'], obj['xyz'], obj['rpy'], obj['parent'])
-            if frame_config:
-                if subscene is None:
-                    the_map[name] = frame_config
-                else:
-                    the_map[f'{subscene}.{name}'] = frame_config
-
-    # internal function: returns a map of (name, FrameConfig) of frames defined in the config file
-    def _process_frames(self) -> dict:
-        the_map = dict()
-        # process the main scene
-        if self.scene_config is not None and 'frames' in self.scene_config:
-            frame_config = self.scene_config['frames']
-            self._extract_frames_dict(frame_config, the_map)
-        # process each subscene
-        if self.subscene_config is not None:
-            for subscene in self.subscene_config.keys():
-                if self.subscene_config[subscene] is None:
-                    continue
-                if 'frames' in self.subscene_config[subscene]:
-                    frame_config = self.subscene_config[subscene]['frames']
-                    self._extract_frames_dict(frame_config, the_map, subscene)
-        return the_map    
-
+                scene_2_name:
+                    link: ...
+            The API is also changed. Please refer to the documentation''')
+  
     # -------------------------------------------
-    # model functions
+    # config query functions
 
-    # returns the value of a named config given as a dot-separated path (e.g. table.objects.lamp.position)
-    def query_config(self, name:str, default=None):
+    # returns the value of a named config given as a dot-separated key (e.g. table.objects.lamp.position)
+    def query_config(self, key:str, default=None):
         """ returns the value of any named config given as a dot-separated path
-        :param name: the dot-separated path
-        :type name: str
-        :param default: the default value if nothing is found in the path, defaults to None
+        :param key: the dot-separated key, the root scene may have the "root" omitted
+        :type key: str
+        :param default: the default value if nothing is found in the key, defaults to None
         :type default: any
         :return: the value of the config
         :rtype: any
         """
-        scene_name = self._parse_config_name(name)
-        if scene_name is None:
+        the_parsed_key = self._parse_config_key(key)
+        if the_parsed_key is None:
             return default
-        if scene_name.subscene is not None:
-            pointer = self.subscene_config[scene_name.subscene]
-        else:
-            pointer = self.scene_config
-        for item in scene_name.path:
+        pointer = self.scenes_dict[the_parsed_key.scene]
+        for item in the_parsed_key.parts:
             if item.isnumeric():
                 try:
                     item = int(item)
                 except:
-                    logger.error(f'query_config: part of query key {name} contains an non-integer index {item}')
-                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')
+                    logger.error(f'query_config: part of query key {the_parsed_key} contains an non-integer index {item}')
+                    raise AssertionError(f'query_config: Non-existent config name "{the_parsed_key}", which contains an invalid index {item}')
                 if item < 0 or item >= len(pointer):
-                    logger.error(f'query_config: part of query key {name} contains an out-of-range integer index {item} ')
-                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')
+                    logger.error(f'query_config: part of query key {the_parsed_key} contains an out-of-range integer index {item} ')
+                    raise AssertionError(f'query_config: Non-existent config name "{the_parsed_key}", which contains an invalid index {item}')
                 if type(pointer) not in (tuple, list):
-                    logger.error(f'query_config: part of query key {name} contains an invalid index {item}, expecting a string key')
-                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')                    
+                    logger.error(f'query_config: part of query key {the_parsed_key} contains an invalid index {item}, expecting a string key')
+                    raise AssertionError(f'query_config: Non-existent config name "{the_parsed_key}", which contains an invalid index {item}')                    
                 pointer = pointer[item]
             else:
                 if type(pointer) != dict:
-                    logger.error(f'query_config: part of query key {name} contains an invalid index {item}, expecting an integer')
-                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')                    
+                    logger.error(f'query_config: part of query key {the_parsed_key} contains an invalid index {item}, expecting an integer')
+                    raise AssertionError(f'query_config: Non-existent config name "{the_parsed_key}", which contains an invalid index {item}')                    
                 if item not in pointer:
-                    logger.error(f'query_config: part of query key {name} contains a non-existent index {item}')
-                    raise AssertionError(f'query_config: Non-existent config name "{name}", which contains an invalid index {item}')                    
+                    logger.error(f'query_config: part of query key {the_parsed_key} contains a non-existent index {item}')
+                    raise AssertionError(f'query_config: Non-existent config name "{the_parsed_key}", which contains an invalid index {item}')                    
                 pointer = pointer[item]
-        return pointer
-    
-    # alias for backward compatibility query_config 
-    def query_position_as_xyz(self, name, default=None):
-        return self.query_config(name, default)
-    
-    def query_rotation_as_rpy(self, name, default=None):
-        return self.query_config(name, default)    
-
-    # returns the subscene name if the config is a subscene config
-    def get_subscene_of_config_name(self, name) -> str:
-        """ returns the subscene name if the config is one belonging to a subscene
-        :return: the name of a subscene or None
-        :rtype: str
-        """
-        scene_name = self._parse_config_name(name)
-        if scene_name is None:
-            return None
-        return scene_name.subscene
-
-    # returns the root scene config as a dict
-    def get_scene_config(self) -> dict:
-        """ returns the main scene config in the config file as a dict
-        :return: the content in the config file
-        :rtype: dict
-        """
-        return self.scene_config
-    
-    # returns a subscene config as a dict
-    def get_subscene_config(self, subscene_name) -> dict:
-        """ returns the config of a subscene in the config file as a dict
-        :return: the content in the config file about the subscene or None
-        :rtype: dict
-        """
-        if subscene_name not in self.subscene_config:
-            return None
-        return self.subscene_config[subscene_name]
+        return pointer 
     
     # returns True of the given config name exists
-    def exists_config(self, name:str) -> bool:
+    def exists_config(self, key:str) -> bool:
         """ returns True of the given config name exists
-        :param name: The config name
-        :type name: str
+        :param key: The config name
+        :type key: str
         :return: True if the given config name exists
         :rtype: bool
         """
-        return self.query_config(name) != None
+        return self.query_config(key) != None
     
-    # returns a list of keys specified under the config name
-    def keys_of_config(self, name:str) -> list:
+    # returns a list of keys specified under the config key if it is a dictionary or an empty list
+    def key_list_under_config_key(self, key:str) -> list:
         """ returns a list of keys specified under the config name or an empty list
-        :param name: The config name
-        :type name: str
+        :param key: The config name
+        :type key: str
         :return: a list of keys specified under the config name
         :rtype: list
         """
-        pointer = self.query_config(name)
+        pointer = self.query_config(key)
         if pointer is None or type(pointer) not in [dict, map]:
             return []
         return list(pointer.keys())
     
-    # returns the length of the list under the config name or an empty list
-    def len_of_list_config(self, name:str) -> int:
+    # returns the length of the list if the config key is a list or an empty list
+    def len_of_key_list_under_config_key(self, key:str) -> int:
         """ returns the length of the list under the config name
-        :param name: The config name
-        :type name: str
+        :param key: The config name
+        :type key: str
         :return: the length of the list the config name 
         :rtype: int
         """        
-        pointer = self.query_config(name)
+        pointer = self.query_config(key)
         if pointer is None or type(pointer) not in [tuple, list]:
             return 0
         return len(pointer)     
 
-    # list the object names
-    def list_object_names(self) -> list:
+    # list the scene names
+    def list_scene_names(self) -> list:
         """ return the list of objects defined in the scene configuration
         :return: a list of object names as strings
         :rtype: list
         """
-        if self.objects_map is None:
-            return []
-        return self.objects_map.keys()
+        return list(self.scenes_dict.keys())
+    
+    # return scene config given the scene name
+    def get_scene_config_as_dict(self, scene_name: str) -> dict:
+        """ return the scene configuration as a dict, or None if the scene not exists
+        :param scene_name: name of the object
+        :type scene_name: str
+        :return: the configuration of the scene as a dict or None if not exists
+        :rtype: dict
+        """
+        return self.scenes_dict.get(scene_name, None)  
     
     # return config given the object name
-    def get_object_config(self, object_name: str) -> ObjectConfig:
+    def get_link_of_scene(self, scene_name: str) -> LinkConfig:
         """ return the object configuration as ObjectConfig tuple, or None if the name not exists
-        :param object_name: name of the object
-        :type object_name: str
-        :return: the configuration as a ObjectConfig or None if not exists
-        :rtype: ObjectConfig
+        :param scene_name: name of the scene
+        :type scene_name: str
+        :return: the LinkConfig of the scene or None if not exists
+        :rtype: LinkConfig
         """
-        return self.objects_map.get(object_name)
+        return self.scenes_linkconfig.get(scene_name, None)
+
+    # list the frame names
+    def list_frame_names(self) -> list:
+        """ return the list of frame type scene defined in the scene configuration
+        :return: a list of frame names as strings
+        :rtype: list
+        """
+        return list(self.frames_config.keys())    
     
+    # return scene config given the scene name
+    def get_frame_config_as_dict(self, frame_name: str) -> dict:
+        """ return the frame configuration as a dict, or None if the scene not exists
+        :param frame_name: name of the frame
+        :type frame_name: str
+        :return: the configuration of the frame type scene or None if not exists
+        :rtype: dict
+        """
+        return self.scenes_dict.get(frame_name, None)  
+    
+    # return config given the object name
+    def get_link_of_frame(self, frame_name: str) -> LinkConfig:
+        """ return the object configuration as ObjectConfig tuple, or None if the name not exists
+        :param frame_name: name of the frame
+        :type frame_name: str
+        :return: the LinkConfig of the frame or None if not exists
+        :rtype: LinkConfig
+        """
+        return self.frames_config.get(frame_name, None)      
+
     # return the named poses as a dict
-    def get_named_poses_as_dict(self) -> dict:
+    def get_named_poses_of_root_as_dict(self) -> dict:
         """ return the named poses defined in the scene configuration as a dict
 
         :return: dict containing key value pairs of named poses
@@ -324,25 +263,7 @@ class Scene():
             result[pose_name] = self.query_config(pose_name)
         return result
 
-    # list the frame names
-    def list_frame_names(self) -> list:
-        """ return the list of frames defined in the scene configuration
-        :return: a list of frames names as strings
-        :rtype: list
-        """
-        if self.frames_map is None:
-            return []
-        return self.frames_map.keys()
 
-    # return config given the object name
-    def get_frame_config(self, frame_name: str) -> FrameConfig:
-        """ return the object configuration as FrameConfig tuple, or None if the name not exists
-        :param frame_name: name of the object
-        :type frame_name: str
-        :return: the configuration as a FrameConfig or None if not exists
-        :rtype: FrameConfig
-        """
-        return self.frames_map.get(frame_name)
 
 # -----------------------------------------------------------
 # test program
@@ -364,16 +285,4 @@ if __name__ == '__main__':
     for rotation in rotations:
         print(f'rotation {rotation}: {the_scene.query_config(rotation)}')        
     
-    objects = the_scene.list_object_names()
-    for object_name in objects:
-        print(f'object {object_name}: {the_scene.get_object_config(object_name)}')
-    
-    the_object = the_scene.query_config('objects.tank')
-    print(the_object)
-    
-    print(f'tank tile step_sizes: {the_scene.query_config("tank.tile")}')
-
-    keys = ['grid.0.rotation.alpha', 'grid.1.rotation.alpha', 'grid.2.rotation.alpha']
-    for key in keys:
-        print(f'key {key}', the_scene.query_config(key))
     

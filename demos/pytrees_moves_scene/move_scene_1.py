@@ -40,7 +40,7 @@ class SimpleMovePyTreesApplication():
         self.arm_commander.wait_for_ready_to_move()
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene.yaml'))
         # setup name poses
-        self.named_poses = self.the_scene.keys_of_config('named_poses')
+        self.named_poses = self.the_scene.key_list_under_config_key('named_poses')
         for pose_name in self.named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))

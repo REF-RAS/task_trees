@@ -55,14 +55,14 @@ class RVizTaskTreesManager(TaskTreesManager):
         self.the_scene = Scene(config_file)
         # setup visualization in rviz
         self.scene_to_rviz = SceneToRViz(self.the_scene, arm_commander.get_world_reference_frame(), False)
-        self.scene_to_rviz.display_object('objects.teapot')
+        self.scene_to_rviz.display_link('teapot')
 
         # setup the robotic manipulation platform through the commander
         self.arm_commander.abort_move(wait=True)
         self.arm_commander.reset_world()
-        bird_object = self.the_scene.get_object_config('teapot')
-        self.arm_commander.add_object_to_scene('teapot_another', bird_object.model_file, bird_object.dimensions, 
-                                bird_object.xyz, bird_object.rpy, reference_frame='area')
+        teapot_object = self.the_scene.get_link_of_scene('teapot')
+        self.arm_commander.add_object_to_scene('teapot_another', teapot_object.model_file, teapot_object.dimensions, 
+                                teapot_object.xyz, teapot_object.rpy, reference_frame='area')
         # self.arm_commander.set_workspace_walls(*(self.the_scene.query_config('regions.workspace')))
         # setup name poses
         self._define_named_poses(self.the_scene)

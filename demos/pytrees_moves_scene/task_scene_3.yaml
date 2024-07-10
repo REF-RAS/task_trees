@@ -1,13 +1,14 @@
 ---
-scene:
-  named_poses: 
-    stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
-    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
-  positions:
-    default_x: [0.3, null, null]
-    init: [0.307, 0.0, 0.588]
-  rotations:
-    alpha: [3.139, 0.0, -0.785]
-subscenes:
+scenes:
+  root:
+    named_poses: 
+      stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
+      home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+    positions:
+      default_x: [0.3, null, null]
+      init: [0.307, 0.0, 0.588]
+    rotations:
+      alpha: [3.139, 0.0, -0.785]
+
 
 

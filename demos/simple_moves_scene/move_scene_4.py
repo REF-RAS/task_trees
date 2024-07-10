@@ -43,7 +43,7 @@ class SceneMoveTaskManager(TaskTreesManager):
         # setup name poses
         self._define_named_poses(self.the_scene)
         # setup objects
-        self._define_objects(self.the_scene)
+        self._define_links(self.the_scene)
 
         # build and install the behavior tree
         self._set_initialize_branch(self.create_init_branch())
