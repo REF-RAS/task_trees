@@ -196,7 +196,7 @@ def create_arrow_marker(name:str, id:int, xyzrpy:list, reference_frame:str, dime
     the_marker.type = Marker().ARROW
     the_marker.pose = list_to_pose(xyzrpy)
     if isinstance(dimensions, numbers.Number):
-        dimensions = [dimensions, dimensions/10, dimensions/10]
+        dimensions = [dimensions, dimensions/10, dimensions/25]
     the_marker.scale = Vector3(*dimensions)
     rgba = RGBAColors.validate_rgba(rgba)
     the_marker.color = ColorRGBA(*rgba)

@@ -1,27 +1,24 @@
 ---
-scene:
-  named_poses: 
-    stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
-    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
-  positions:
-    default_z: [null, null, 0.5]
-  objects:
-    teapot:
+scenes:
+  root:
+    named_poses: 
+      stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
+      home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+    positions:
+      default_z: [null, null, 0.5]
+
+  teapot:
+    link:
       type: object
       # model_file: file://localhost/home/qcr/arm_commander_ws/src/task_trees/demos/rviz_display/utah_teapot.stl
       model_file: package://task_trees/demos/rviz_display/utah_teapot.stl
       dimensions: [0.01, 0.01, 0.01]
       xyz: [0.4, 0.20, 0.00]
       rpy: [0, 0, 3.14]
-  frames:
-    area:
+  area:
+    link:
+      type: frame
       xyz: [0.4, -0.20, 0.00]
       rpy: [3.14, 0, 3.14]
-subscenes:
-  area:
-    frames:
-      zone:
-        xyz: [0.4, -0.20, 0.00]
-        rpy: [3.14, 0, 3.14]
-      
+    
 

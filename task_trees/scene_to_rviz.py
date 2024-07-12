@@ -16,7 +16,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Pose, PoseStamped, TransformStamped, Transform, Vector3, Quaternion
 from visualization_msgs.msg import Marker
 
-from task_trees.task_scene import Scene, ObjectConfig
+from task_trees.task_scene import Scene, LinkConfig
 import task_trees.tools.rviz_tools as rviz_tools
 from task_trees.tools.logging_tools import logger
 from task_trees.tools.rviz_tools import RvizVisualizer
@@ -26,7 +26,7 @@ from task_trees.tools.rospkg_tools import PackageFile
 class SceneToRViz(RvizVisualizer):
     """ The helper class for managing visualization of scene configs in rviz
     """
-    def __init__(self, the_scene:Scene, base_frame:str=None, publish_objects_transform=True, pub_period:float=0.1):
+    def __init__(self, the_scene:Scene, base_frame:str=None, publish_scenes_transform=True, pub_period:float=0.1):
         # check if a ROS node has been initialized 
         node_uri = rospy.get_node_uri()
         if node_uri is None:
@@ -38,18 +38,18 @@ class SceneToRViz(RvizVisualizer):
         super(SceneToRViz, self).__init__()
         self.the_scene = the_scene
         self.base_frame = base_frame
-        self.is_transform_publisher = publish_objects_transform
+        self.is_transform_publisher = publish_scenes_transform
         self.is_world_publisher = False
-        self.publishable_object_names = []
+        self.publishable_scene_names = []
         # setup transform
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
 
         if self.base_frame is None:
             self.base_frame = 'world'
             self.is_world_publisher = True
-            logger.warning(f'SceneToRViz: no base_frame given, use default base frame "world"')
+            logger.warning(f'SceneToRViz: no base_frame given, define "world" as the default base_frame')
         # setup custom transforms
-        self.custom_transform_object_dict = defaultdict(lambda: None)
+        self.custom_transform_link_dict = defaultdict(lambda: None)
         # setup timer
         self.timer_transform = rospy.Timer(rospy.Duration(pub_period), self._cb_timer_transform)
     
@@ -64,78 +64,64 @@ class SceneToRViz(RvizVisualizer):
             self.tf_broadcaster.sendTransform(transform_stamped)
             self.is_world_publisher = False
         if self.is_transform_publisher:
-            self._pub_transform_all_objects()
+            self._pub_transform_specified_links()
         self._pub_custom_transform()
 
     # internal function: publish the transform of objects in the scene config subject to the list of publishable objects 
-    def _pub_transform_all_objects(self):
-        for object_name in the_scene.list_object_names():
-            if self.publishable_object_names is None or object_name in self.publishable_object_names:
-                the_object = the_scene.get_object_config(object_name)
-                xyzrpy = the_object.xyz + the_object.rpy
-                self._pub_transform_object(object_name, xyzrpy, the_object.frame)
+    def _pub_transform_specified_links(self):
+        for scene_name in self.the_scene.list_scene_names():
+            if self.publishable_scene_names is None or scene_name in self.publishable_scene_names:
+                link_config = self.the_scene.get_link_of_scene(scene_name)
+                xyzrpy = link_config.xyz + link_config.rpy
+                self._pub_transform_link(scene_name, xyzrpy, link_config.parent_frame)
                 
     # internal function: publish the transform of custom objects
     def _pub_custom_transform(self):
-        for the_object in self.custom_transform_object_dict.values():
-            xyzrpy = the_object.xyz + the_object.rpy
-            self._pub_transform_object(the_object.name, xyzrpy, the_object.frame)
+        link_config:LinkConfig
+        for link_config in self.custom_transform_link_dict.values():
+            xyzrpy = link_config.xyz + link_config.rpy
+            self._pub_transform_link(link_config.name, xyzrpy, link_config.parent_frame)
 
     # internal function: publish the transform of a specific named object
-    def _pub_transform_object(self, name, pose, frame=None):
+    def _pub_transform_link(self, name, pose, parent_frame=None):
         """ publish the transform of an object
 
-        :param name: name of the object
+        :param name: name of the link
         :type name: str
-        :param pose: the pose of the object 
+        :param pose: the pose of the link 
         :type pose: Pose, PoseStamped, list of 6 or 7
-        :param frame: the frame against which the pose is defined, ignored if PoseStamped is provided, defaults to None
-        :type frame: str, optional
+        :param parent_frame: the parent frame of the pose, ignored if PoseStamped is provided, defaults to the base_frame
+        :type parent_frame: str, optional
         """
-        frame = self.base_frame if frame is None else frame
+        parent_frame = self.base_frame if parent_frame is None else parent_frame
         if type(pose) in [list, tuple]:
-            pose_stamped = list_to_pose_stamped(pose, frame)
+            pose_stamped = list_to_pose_stamped(pose, parent_frame)
         elif type(pose) == Pose:
             pose_stamped = PoseStamped()
-            pose_stamped.header.frame_id = frame
+            pose_stamped.header.frame_id = parent_frame
             pose_stamped.header.stamp = rospy.Time.now()
             pose_stamped.pose = pose
         elif type(pose) == PoseStamped:
-            frame = pose.header.frame_id
+            parent_frame = pose.header.frame_id
             pose_stamped = pose
         else:
             rospy.logerr(f'{__class__.__name__}: parameter (pose) is not list of length 6 or 7 or a Pose object -> fix the parameter at behaviour construction')
             raise TypeError(f'A parameter is invalid')
         self.tf_broadcaster.sendTransform(pose_stamped_to_transform_stamped(pose_stamped, name))
 
-        # try:
-        #     # frame is ignored if pose is PoseStamped
-        #     if type(pose) == Pose:
-        #         xyzq = pose_to_xyzq(pose)
-        #     elif type(pose) == PoseStamped:
-        #         frame = pose.header.frame_id            
-        #         xyzq = pose_to_xyzq(pose.pose)
-        #     else:
-        #         xyzq = list_to_xyzq(pose)
-        # except Exception:
-        #     logger.error(f'{__class__.__name__}: parameter (pose) is not list of length 6 or 7 or a Pose object -> fix the parameter at behaviour construction')
-        #     raise
-        # frame = self.base_frame if frame is None else frame
-        # self.tf_pub.sendTransform(xyzq[:3], xyzq[3:], rospy.Time.now(), name, frame)
-
     # --------------------------------
-    def set_publish_objects_transform(self, object_names:list=None):
-        """ specify the names of the objects that are to be included in transform publish
+    def set_publish_links_transform(self, link_names:list=None):
+        """ specify the names of the links that are to be included in transform publish
 
-        :param object_names: a list of object names to be included, defaults to None
-        :type object_names: list, optional
+        :param link_names: a list of links names to be included, defaults to None
+        :type link_names: list, optional
         """
-        if object_names is not None and type(object_names) not in [tuple, list]:
+        if link_names is not None and type(link_names) not in [tuple, list]:
             logger.error(f'SceneToRViz (set_publish_transform): parameter (object_names) must be a list of strings or None')
             raise AssertionError('Parameter (object_names) type is invalid')
-        self.publishable_object_names = object_names
+        self.publishable_scene_names = link_names
 
-    def display_bbox_regions(self, config_key:str, plane:str='xy', rgba=[1.0, 0.0, 1.0, 0.2]) -> None:
+    def display_bbox_regions(self, config_key:str, plane:str='xy', reference_frame=None, rgba=[1.0, 0.0, 1.0, 0.2]) -> None:
         """ display as a bbox 2d or 3d region specified by the key or set of keys under the config_key parameter along the plane
 
         :param config_key: the name of the config key in the scene configuration, which is either the key itself or a parent of keys
@@ -149,8 +135,7 @@ class SceneToRViz(RvizVisualizer):
         if value is None:
             logger.warning(f'SceneToRViz (register_regions_as_bbox): Non-existent key {config_key}')
             return
-        subscene = self.the_scene.get_subscene_of_config_name(config_key)
-        reference_frame = subscene if subscene is not None else self.base_frame
+        reference_frame = reference_frame if reference_frame is not None else self.base_frame  
         if plane is None:
             plane = 'xy' # default to xy
         if type(value) in [list, tuple] and len(value) in [4, 6]:
@@ -168,7 +153,7 @@ class SceneToRViz(RvizVisualizer):
                         continue
                 logger.warning(f'SceneToRViz (display_bbox_regions): region ({key}) bbox should be a list of 4 or 6')
 
-    def display_rotations(self, config_key:str, arrow_length:float=1.0, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
+    def display_rotations(self, config_key:str, arrow_length:float=1.0, reference_frame=None, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
         """ display as an arrow the rotation specified by config_key
 
         :param config_key: the name of the config key in the scene configuration, which is either the key itself or a parent of keys
@@ -181,9 +166,8 @@ class SceneToRViz(RvizVisualizer):
         value = self.the_scene.query_config(config_key, None)
         if value is None:
             logger.warning(f'SceneToRViz (register_positions): Non-existent key {config_key}')
-            return 
-        subscene = self.the_scene.get_subscene_of_config_name(config_key)
-        reference_frame = subscene if subscene is not None else self.base_frame              
+            return
+        reference_frame = reference_frame if reference_frame is not None else self.base_frame  
         if type(value) in [list, tuple] and len(value) == 3:
             value = {' ': value}
         if type(value) == dict:
@@ -197,7 +181,7 @@ class SceneToRViz(RvizVisualizer):
                 logger.warning(f'SceneToRViz (display_rotations): rotation ({key}) should be a list of 3')
                 
 
-    def display_positions(self, config_key:str, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
+    def display_positions(self, config_key:str, reference_frame=None, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
         """ display one or more positions or partial definitions, that a sphere represents full specification, a line represents a position with a null
         value, and a plane represents a position with two null values 
 
@@ -209,9 +193,8 @@ class SceneToRViz(RvizVisualizer):
         value = self.the_scene.query_config(config_key, None)
         if value is None:
             logger.warning(f'SceneToRViz (display_positions): Non-existent key {config_key}')
-            return 
-        subscene = self.the_scene.get_subscene_of_config_name(config_key)
-        reference_frame = subscene if subscene is not None else self.base_frame              
+            return
+        reference_frame = reference_frame if reference_frame is not None else self.base_frame  
         if type(value) == list and len(value) == 3:
             value = {' ': value}
         if type(value) == dict:
@@ -249,42 +232,41 @@ class SceneToRViz(RvizVisualizer):
                     marker = rviz_tools.create_axisplane_marker(f'{config_key}.{key}', id, bbox, xyz[index], reference_frame, plane, rgba=rgba)
                     self.add_persistent_marker(marker)
 
-    def display_object(self, config_key:str, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
-        """ display one object associated with the config key
+    def display_link(self, scene_name:str, reference_frame=None, rgba=[1.0, 0.0, 0.0, 0.8]) -> None:
+        """ display the link associated with the config key
 
-        :param config_key: the name of the config key in the scene configuration, which is either the key itself or a parent of keys
-        :type config_key: str
+        :param scene_name: the name of a scene
+        :type scene_name: str
         :param rgba: the colour of the objects defaults to [1.0, 0.0, 1.0, 0.2]
         :type rgba: list, optional
         """
-        value = self.the_scene.query_config(config_key, None)
+        value = self.the_scene.query_config(scene_name, None)
         if value is None:
-            logger.warning(f'SceneToRViz (display_objects): Non-existent key {config_key}')
+            logger.warning(f'SceneToRViz (display_objects): Non-existent key {scene_name}')
             return  
-        subscene = self.the_scene.get_subscene_of_config_name(config_key)
-        reference_frame = subscene if subscene is not None else self.base_frame              
         if type(value) != dict:
-            logger.warning(f'SceneToRViz (display_objects): the key {config_key} is not associated with a single object in a dict structure')
+            logger.warning(f'SceneToRViz (display_objects): the key {scene_name} is not associated with a single object in a dict structure')
             return
-        the_object = self.the_scene._create_object_config(value)
-        if the_object.type == 'box':
-            xyzrpy = the_object.xyz + the_object.rpy
-            marker = rviz_tools.create_cube_marker_from_xyzrpy(f'object.{config_key}', 0, xyzrpy, reference_frame, the_object.dimensions, rgba=rgba)
+        reference_frame = reference_frame if reference_frame is not None else self.base_frame 
+        the_link:LinkConfig = self.the_scene.get_link_of_scene(scene_name)
+        if the_link.type == 'box':
+            xyzrpy = the_link.xyz + the_link.rpy
+            marker = rviz_tools.create_cube_marker_from_xyzrpy(f'object.{scene_name}', 0, xyzrpy, reference_frame, the_link.dimensions, rgba=rgba)
             self.add_persistent_marker(marker)
-        elif the_object.type == 'sphere':
-            marker = rviz_tools.create_sphere_marker(f'object.{config_key}', 0, the_object.xyz, reference_frame, the_object.dimensions, rgba=rgba)
+        elif the_link.type == 'sphere':
+            marker = rviz_tools.create_sphere_marker(f'object.{scene_name}', 0, the_link.xyz, reference_frame, the_link.dimensions, rgba=rgba)
             self.add_persistent_marker(marker)  
-        elif the_object.type == 'object': 
+        elif the_link.type == 'object': 
             try:
-                model_file = PackageFile.resolve_to_file_or_http_uri(the_object.model_file)
+                model_file = PackageFile.resolve_to_file_or_http_uri(the_link.model_file)
             except Exception as ex:
-                logger.warning(f'SceneToRViz (display_objects): Invalid model_file for object ({the_object.model_file}): {ex}')
+                logger.warning(f'SceneToRViz (display_objects): Invalid model_file for object ({the_link.model_file}): {ex}')
                 return
-            xyzrpy = the_object.xyz + the_object.rpy        
-            marker = rviz_tools.create_mesh_marker(f'object.{config_key}', 0, model_file, xyzrpy, reference_frame, the_object.dimensions, rgba=rgba)
+            xyzrpy = the_link.xyz + the_link.rpy        
+            marker = rviz_tools.create_mesh_marker(f'object.{scene_name}', 0, model_file, xyzrpy, reference_frame, the_link.dimensions, rgba=rgba)
             self.add_persistent_marker(marker) 
         else:
-            logger.warning(f'SceneToRViz (display_objects): Invalid object type {the_object.type} of the key {config_key}')
+            logger.warning(f'SceneToRViz (display_objects): Invalid object type {the_link.type} of the key {scene_name}')
 
     # ------------------------------------------------------------------------
     # Functions for adding custom transforms for visualization
@@ -301,7 +283,7 @@ class SceneToRViz(RvizVisualizer):
         if name is None or xyz is None or rpy is None or frame is None:
             logger.error(f'SceneToRViz (add_custom_transform): No parameter can be None')
             raise AssertionError('A parameter is none')
-        self.custom_transform_object_dict[name] = ObjectConfig(name, None, None, None, xyz, rpy, frame)
+        self.custom_transform_link_dict[name] = LinkConfig(name, None, None, None, xyz, rpy, frame)
 
     def update_custom_transform_pose(self, name, xyz=None, rpy=None, frame=None) -> None:
         """ Update the pose of a custom transform
@@ -311,7 +293,7 @@ class SceneToRViz(RvizVisualizer):
         :param rpy: the updated rpy, defaults to None meaning unchanged
         :param frame: the updated frame, defaults to None meaning unchanged
         """
-        the_object:ObjectConfig = self.custom_transform_object_dict[name]
+        the_object:LinkConfig = self.custom_transform_link_dict[name]
         if the_object is None:
             logger.warning(f'__name__ (update_custom_transform_pose): the custom transform name {name} is not found')
             return False
@@ -326,20 +308,20 @@ class SceneToRViz(RvizVisualizer):
         :param name: the name of the transform to be removed, or None to remove all
         """
         if name is None:
-            self.custom_transform_object_dict.clear()
-        elif name in self.custom_transform_object_dict:
-            del self.custom_transform_object_dict[name]
+            self.custom_transform_link_dict.clear()
+        elif name in self.custom_transform_link_dict:
+            del self.custom_transform_link_dict[name]
     
 # -----------------------------------------------------------
 # test program
 if __name__ == '__main__':
     the_scene = Scene(os.path.join(os.path.dirname(__file__), '../demos/gridscan/task_scene.yaml'))
     scene_to_rviz = SceneToRViz(the_scene, 'world')
-    scene_to_rviz.set_publish_objects_transform(None)
+    scene_to_rviz.set_publish_links_transform(None)
     scene_to_rviz.display_bbox_regions('regions')
     scene_to_rviz.display_bbox_regions('tank.bbox', rgba=[0.2, 0.8, 0.4, 0.2])
     scene_to_rviz.display_rotations('tank.rotations', arrow_length=0.5, rgba=[0.2, 0.0, 1.0, 0.8])
     scene_to_rviz.display_positions('tank.positions', rgba=[1.0, 1.0, 0.0, 0.8])    
     # test display objects
-    scene_to_rviz.display_object('objects.tank', rgba=[1.0, 0.2, 0.2, 0.8]) 
+    scene_to_rviz.display_link('objects.tank', rgba=[1.0, 0.2, 0.2, 0.8]) 
     rospy.spin()

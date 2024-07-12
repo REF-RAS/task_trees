@@ -83,8 +83,8 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         # setup visualization in rviz
         self.scene_to_rviz = SceneToRViz(self.the_scene, arm_commander.get_world_reference_frame(), False)
         self.scene_to_rviz.display_bbox_regions('regions', rgba=[1.0, 0.0, 1.0, 0.2])
-        object_area1 = self.the_scene.get_object_config('area_1')
-        self.scene_to_rviz.add_custom_transform('area', object_area1.xyz, object_area1.rpy, arm_commander.get_world_reference_frame())
+        link_area1 = self.the_scene.get_link_of_scene('area_1')
+        self.scene_to_rviz.add_custom_transform('area', link_area1.xyz, link_area1.rpy, arm_commander.get_world_reference_frame())
         self.scene_to_rviz.display_positions('area.positions', rgba=[1.0, 1.0, 0.0, 0.8])    
         # setup the robotic manipulation platform through the commander
         self.arm_commander.abort_move(wait=True)
@@ -112,7 +112,7 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         #     the_object = self.the_scene.get_object_config(object_name)
         #     if the_object.type == 'box':
         #         self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy, the_object.frame)
-        self._define_objects(self.the_scene, 'box')
+        self._define_links(self.the_scene, 'box')
 
     def generate_the_object(self):
         self.the_object = dict()
@@ -197,19 +197,19 @@ class PushBlockTaskTreesManager(TaskTreesManager):
         return pose_tools.in_region((current_pose.pose.position.x, current_pose.pose.position.y,), self.the_scene.query_config(logical_region))     
     
     def over_an_object(self, object_name) -> bool:
-        the_object = self.the_scene.get_object_config(object_name)
-        the_object_position_as_bbox = [the_object.xyz[0] - the_object.dimensions[0] / 2, the_object.xyz[1] - the_object.dimensions[1] / 2,
-                                    the_object.xyz[0] + the_object.dimensions[0] / 2, the_object.xyz[1] + the_object.dimensions[1] / 2]
+        the_link = self.the_scene.get_link_of_scene(object_name)
+        the_object_position_as_bbox = [the_link.xyz[0] - the_link.dimensions[0] / 2, the_link.xyz[1] - the_link.dimensions[1] / 2,
+                                    the_link.xyz[0] + the_link.dimensions[0] / 2, the_link.xyz[1] + the_link.dimensions[1] / 2]
         current_pose = self.arm_commander.pose_of_robot_link()
         return pose_tools.in_region((current_pose.pose.position.x, current_pose.pose.position.y,), the_object_position_as_bbox)   
      
     def on_or_above_z(self, position) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return current_pose.pose.position.z > self.the_scene.query_position_as_xyz(position)[2] - 0.05
+        return current_pose.pose.position.z > self.the_scene.query_config(position)[2] - 0.05
     
     def below_z(self, position) -> bool:
         current_pose = self.arm_commander.pose_of_robot_link()
-        return current_pose.pose.position.z < self.the_scene.query_position_as_xyz(position)[2] - 0.05
+        return current_pose.pose.position.z < self.the_scene.query_config(position)[2] - 0.05
         
     def wrong_restart_position(self) -> bool:
         target = self.query_target_reference_frame()

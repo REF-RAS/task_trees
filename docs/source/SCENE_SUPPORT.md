@@ -10,73 +10,72 @@ The key enabling component of the logical scene support is **scene configuration
 
 ### Basic Structure of a Scene Configuration File
 
-A scene configuration file is divided into the root scene and custom subscene. The significance betwwen the root scene and the subscenes is the namespace of their configuration key-value pairs. All key-value defined under the root scene do have an empty namespace, while the variables under a subscene requires the subscene name as the namespace.  The top level keys must be `scene` and `subscenes`, and under `subscenes` keys representing names of subscenes can be added. In the following example, `sub_scene_1` and `sub_scene_2` are names of custom subscenes.
+A scene configuration file can be divided into one or more scenes. The first scene must be known as `root`. The scene is the top-level identifier for refering to all the resource keys in the configuration file. Each scene defines its own reference frame and optionally an visual object attached. A scene without a specified visual object is called a frame-type scene or simply known as a frame. 
+
+The significance betwwen the root scene and the other scenes is the namespace of their configuration key-value pairs. All key-value defined under the root scene may be replaced with an empty namespace, while the variables under a subscene requires the subscene name as the namespace.  
+
+The configuration file must starts with the key `scenes`, under which each scene can be added by the name as the head the scene branch. In the following example, `root` is the mandatory scene, and `scene_1` and `scene_2` are names of custom scenes.
 
 ```diff
 ---
-scene:
+scenes:
+  root:
   ... variables of the root scene go here
-    objects: 
-      ... optional definitions of objects (which are also reference frames)
-    frames:
-      ... optional definitions of reference frames
+
     named_poses:
       ... optional definitions of named poses
 
-subscenes:
-    sub_scene_1:
-      ... variables of the subscene sub_scene_1 go here
+  scene_1:
+    link: 
+      ... pose definitions of scene (which are also reference frames)
+    ... variables of the subscene scene_1 go here
 
-    sub_scene_2:
-      ... variables of the subscene sub_scene_2 go here
+  scene_2:
+    ... variables of the subscene scene_2 go here
 ```
 
-### Optional Branches Recognized by the Task Tree Manager
-
-The named branches of `objects`, `frames`, and `named_poses` have dedicated functions in the scene configuration.
-
-- The key `objects` under the root scene is recognized by the task tree manager `TaskTreesManager` class as definitions of collision objects. In the task trees, collision objects are also recognized as custom reference frames. 
-- The key `frames` under the root scene is recognized as definitions of custom reference frames. 
-- The key`named_poses` under the root scene is also recognized by the task tree manager as the named poses adding to the arm commander.
-
-The presence of these branches are optional.
-
-The `TaskTreesManager` class offers the functions `_define_objects`, `_define_frames` and `_define_named_poses` for adding the objects, the custom reference frames, and named poses defined in the scene configuration.
-
-### Specifying Configurations in the Root Scene and Subscenes
+### Specifying Configurations in the Root Scene and Other Scenes
 
 Consider the example `task_scene_4.yaml` [source code](../../demos/simple_moves_scene/task_scene_4.yaml) below. In this example, all configuration keys are under the root scene. No subscene is defined.
 
 ```
 ---
-scene:
-  named_poses: 
-    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
-  positions:
-    default_z: [null, null, 0.5]
-  objects:
-    area_1:
+scenes:
+  root:
+    named_poses: 
+      home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+    positions:
+      default_z: [null, null, 0.5]
+  area_1:
+    link:
+      parent_frame: root
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
       xyz: [0.4, 0.20, 0.00]
       rpy: [0, 0, 3.14]
-      frame: null
-    area_2:
+  area_2:
+    link:
+      parent_frame: root
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
       xyz: [0.4, -0.20, 0.00]
       rpy: [0, 0, 3.14]
-      frame: area_1
-subscenes:
 ```
-A subscene is firstly a namespace for queries and key references. It should also be the reference frame to which the poses are defined.  The subscene name is usually either the name of a reference frame or a collision object. 
+A scene is firstly a namespace for queries and key references. It should also be the reference frame to which the poses are defined.  The scene name is both the name of a reference frame and, if defined, a collision object. 
 
-The scene configuration file below defines one subscene called `area_1`, in which several configuration keys are defined. Note that `area_1` is a reference frame (a side effect of defining a collision object). Normally, pose keys such as `area_1.positions.start` and their subscene `area_1` are used together in using the move behaviours.
+The scene configuration file below defines one scene called `area_1`, in which several configuration keys are defined. Note that `area_1` is a reference frame (a side effect of defining a collision object). Normally, pose keys such as `area_1.positions.start` and their scene (referene frame) `area_1` are used together in using the move behaviours.
 ```
-subscenes:
+scenes:
   area_1:
+    link:
+      parent_frame: root
+      type: box
+      model_file: null
+      dimensions: [0.2, 0.2, 0.01]
+      xyz: [0.4, 0.20, 0.00]
+      rpy: [0, 0, 3.14]
     positions:
       hover: [null, null, 0.40]
       down: [null, null, 0.27]
@@ -86,7 +85,9 @@ subscenes:
       end: [0, -0.06, null]
 ```
 
-### Collision Objects and Custom Reference Frames
+### The `link` Branch: Collision Objects and Custom Reference Frames 
+
+The link of a scene specifies a reference frame and optionally the collision object.
 
 Collision object definitions comprise the following mandatory and optional keys headed by the name of the object.
 - `type`: `box`, `sphere`, or `object`
@@ -94,11 +95,13 @@ Collision object definitions comprise the following mandatory and optional keys 
 - `dimensions`: a list of length, width, and height for a `box`, the radius for a `sphere`, and the scaling factor as a list of 3 numbers for an `object`.
 - `xyz`: the position of the object
 - `rpy`: the orientation of the object  
-- `frame`: the reference frame for the object pose, where `null` implies the world frame. This field is optional.
+- `parent_frame`: the reference frame for the object pose, where `null` implies the world frame. This field is optional.
 
-Every collision object will project its position and rotation as its own custom reference frames. The following defines the object named `area_1` and the fields are populated. Note that the null frame is default to the world frame.
+Every collision object will project its position and rotation as its own custom reference frames. The following defines the scene named `area_1` which is also the name of the reference frame. In particular, the type `box` indicaates that it is a collision object as well. Note that the null frame is default to the base/world frame. The pose parameter
+ (xyz and rpy) is the transform from `area_1` to the base/world frame. 
 ```
-    area_1:
+  area_1:
+    link:
       type: box
       model_file: null
       dimensions: [0.2, 0.2, 0.01]
@@ -106,14 +109,15 @@ Every collision object will project its position and rotation as its own custom 
       rpy: [0, 0, 3.14]
       frame: null
 ```
-Collision objects can be defined under a subscene as well. If `frame` is not given or its value is `null`, the subscene becomes the default frame.
+Collision objects can be defined based on the reference of another scene. If `parent_frame` is not given or its value is `null`, the scene becomes the default frame.
 
 Custom reference frame definitions comprise the following mandatory and optional keys headed by the name of the frame.
-- `xyz`: the position of the object
-- `rpy`: the orientation of the object  
-- `parent` or `frame`: the reference frame for the object pose, where `null` implies the world frame. This field is optional.
+- `type`: `frame`
+- `xyz`: the position of the transform
+- `rpy`: the orientation of the transform 
+- `parent_frame` or `frame`: the reference frame for the custom frame, where `null` implies the world frame. This field is optional.
 
-Similarly, custom reference frames can be defined under a subscene. The default frame is the parent subscene.
+Similarly, custom reference frames can be defined with another scene as the parent frame. The default frame is the root scene.
 
 ### Loading and Querying the Scene Configuration File
 
@@ -126,13 +130,13 @@ from task_trees.task_scene import Scene
 ```
 The `Scene` class gives every configuration key a unique reference. The reference is a dot-separated string made up of the scene namespace followed by keys of the ancestors of a key-value configuration. For example, the reference `named_poses.home` refers to the `home` child of the `named_poses` node under the root scene (therefore the empty namespace). A configuration key under a subscene has a prepended namespace. For example, `area.positions.start` refers to the value `[0, 0.11, null]` in the above example.
 
-The following code snippet demonstrates the functions `keys_of_config` and `query_config` for listing the children keys and querying for the value of a configuration reference.
+The following code snippet demonstrates the functions `key_list_under_config_key` and `query_config` for listing the children keys and querying for the value of a configuration reference.
 
 ```
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene.yaml'))
 
         # setup name poses
-        self.named_poses = self.the_scene.keys_of_config('named_poses')
+        self.named_poses = self.the_scene.key_list_under_config_key('named_poses')
         for pose_name in self.named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
@@ -147,6 +151,16 @@ In the following compositional move target example, the missing x and y componen
         DoMoveXYZ('move_xy', True, arm_commander=self.arm_commander, scene=self.the_scene, 
             target_xyz=['positions.default_z', self.generate_random_xyz], reference_frame='area_2'),   
 ```
+### Branches Recognized by the Task Tree Manager
+
+The named branches of `link`, and `named_poses` have dedicated functions in the scene configuration.
+
+- The key `link` under a scene with the `type` equals to `box`, `sphere`, and `object` is recognized by the task tree manager `TaskTreesManager` class as definitions of collision objects. In the task trees, collision objects are also recognized as custom reference frames. 
+- The type of `frames` under the key `link` of a scene is recognized as definitions of custom reference frames. 
+- The key`named_poses` under the root scene is also recognized by the task tree manager as the named poses adding to the arm commander.
+
+The `TaskTreesManager` class offers the functions `_define_links`, `_define_frames` and `_define_named_poses` for adding the scenes/collision objects, the custom reference frames, and named poses defined in the scene configuration.
+
 
 ### Internal Logical References
 
@@ -154,30 +168,58 @@ Subclasses of `SceneConditionalCommanderBehaviour` accepts internal references w
 
 The following part of a configuration file is extracted from `task_scene.yaml` [source code](../../demos//pushblock/task_scene.yaml) under `/demos/pushblock`.
 ```
-scene:
-  named_poses: 
-    stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
-    home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
-  regions:
-    workspace: [-0.5, -0.75, -0.1, 1.0, 0.5, 1.0]  # min_x, min_y, min_z, max_x, max_y, max_z
-    inner: [-0.5, -0.75, 0.30, 0.5]  # min_x, min_y, max_x, max_y
-  positions:
-    drop: [0.5, 0.3, 0.4]
-  rotations:
-    alpha: [3.14, 0, -0.785] 
-    beta: [3.14, 0, 2.358]      
+scenes:
+  root:
+    named_poses: 
+      stow: [0.0, -1.244, 0.0, -2.949, 0.0, 1.704, 0.785] # from base
+      home: [0.0, -0.785, 0.0, -2.36, 0.0, 1.57, 0.785] # from base
+    regions:
+      workspace: [-0.5, -0.75, -0.1, 1.0, 0.5, 1.0]  # min_x, min_y, min_z, max_x, max_y, max_z
+      inner: [-0.5, -0.75, 0.30, 0.5]  # min_x, min_y, max_x, max_y
+    rotations:
+      # alpha: [3.14, null, 0.78] 
+      # beta: [3.14, null, -0.78]
+      alpha: [3.14, 0, -0.785] 
+      beta: [3.14, 0, 2.358]      
+    push_block:
+        dimensions: [0.05, 0.05, 0.05]
+        xyz: [0.0, 0.025, 0.151]
+        rpy: [0, 0, 0]    
 ...
-subscenes:
   area_1:
     rotation: rotations.alpha
+    link:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.4, 0.0, 0.125]
+      rpy: [0, 0, 1.57]
   area_2:
     rotation: rotations.beta
+    link:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.50, -0.10, 0.125]
+      rpy: [0, 0, 3.14]
   area_3:
     rotation: rotations.beta
+    link:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.6, 0.0, 0.125]
+      rpy: [0, 0, -1.57]
   area_4:
     rotation: rotations.alpha
+    link:
+      type: box
+      model_file: null
+      dimensions: [0.1, 0.1, 0.25]
+      xyz: [0.50, 0.10, 0.125]
+      rpy: [0, 0, 0] 
 ```
-The key `rotation` of the four subscenes are mapped to either `rotation.alpha` or `rotation.beta`. For example, in resolving the key `area_1.rotation`, if the value is a string, `SceneConditionalCommanderBehaviour` attempts to resolve it once more using the scene configuration. 
+The key `rotation` of the four area scenes are mapped to either `rotation.alpha` or `rotation.beta`. For example, in resolving the key `area_1.rotation`, if the value is a string, `SceneConditionalCommanderBehaviour` attempts to resolve it once more using the scene configuration. 
 
 The internal logical reference feature improves the readability and maintainability of the configuration file.
 
@@ -188,15 +230,16 @@ The functions provided by the `Scene` class are listed below.
 | Functions | Remarks | 
 | --- | --- |
 | `query_config(self, name:str, default=None)` | The `name` is in the format of dot separated reference |  
-| `query_position_as_xyz(self, name, default=None)` | Alias of `query_config` for backward compatability |
-| `query_rotation_as_rpy(self, name, default=None)` | Alias of `query_config` for backward compatability |
-| `get_scene_config(self)` | Return the root scene config in the config file as a dict |
-| `get_subscene_config(self, name)`| Return the config of a subscene as a dict |   
 | `exists_config(self, name:str)` | Return True if the configuration name exists |
-| `keys_of_config(self, name:str)` | Return the children of a configuration reference as a list of keys |  
-| `len_of_list_config(self, name:str)` | Return the number of children of a list typed configuration reference |
-| `list_object_names(self)` | Return the names of the defined objects as a list |
-| `get_object_config(self, object_name: str)` | Return the configuration of an object given its name |
+| `key_list_under_config_key(self, key:str)` | Return the children keys of a configuration reference as a list |
+| `len_of_key_list_under_config_key(self, key:str)` | Return the number of children under a list-type configuration reference |
+| `list_scene_names(self)` | Return the names of the defined scenes as a list |
+| `get_scene_config_as_dict(self, scene_name)` | Return the scene config branch in the config file as a dict |
+| `get_link_of_scene(self, scene_name)`| Return the link of the scene as a LinkConfig |
+| `list_frame_names(self)` | Return the names of the defined frame-type scenes as a list |
+| `get_frame_config_as_dict(self, frame_name)` | Return the frame-type scene config branch in the config file as a dict |
+| `get_link_of_frame(self, frame_name)`| Return the link of the frame as a LinkConfig |
+| `get_named_poses_of_root_as_dict(self, name)`| Return the config of a subscene as a dict |   
 
 Refer to the API Reference for more details about these functions.
 
@@ -212,22 +255,24 @@ The function `query_config` allows the query of any configuration key using a do
 
 For example, tke query key `positions.start` refers to a configuration key under the root scene.
 ```
-scene:
-  positions:
-    start: [1, 2, 3]
-    end: [2, 3, 5]
+scenes:
+  root:
+    positions:
+      start: [1, 2, 3]
+      end: [2, 3, 5]
 ```
 On the other hand, the query key `grid.1.rotation.alpha` matches the following structure, and it refers to the value [0, 0, 1.57]. The `1` refers to the index `1` of the list-like child under `grid`.
 ```
-scene:
-  grid:
-    - rotation:
-        alpha: [3.14, 0, 0]
-    - rotation:
-        alpha: [0, 0, 1.57]
+scenes:
+  root:
+    grid:
+      - rotation:
+          alpha: [3.14, 0, 0]
+      - rotation:
+          alpha: [0, 0, 1.57]
 ```
 
-To refer to a configuration key under a subscene, the query key should start with the subscene name. Given the following configuration yaml file.
+To refer to a configuration key under a non-root scene, the query key should start with the scene name. Given the following configuration yaml file.
 ```
 subscenes:
   the_tank:
@@ -240,7 +285,6 @@ subscenes:
 The query key `the_tank.grid.0.rotation.alpha` refers to the value `[3.14, 0, 0]`.
 
 Application developers can design a suitable configuration structure and use the function `query_config` to rerieve configuration values.
-
 
 
 ### Author

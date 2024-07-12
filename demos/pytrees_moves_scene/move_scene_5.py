@@ -43,16 +43,18 @@ class SimpleMovePyTreesApplication():
         # load scene config
         self.the_scene = Scene(os.path.join(os.path.dirname(__file__), 'task_scene_4.yaml'))
         # setup name poses
-        self.named_poses = self.the_scene.keys_of_config('named_poses')
+        self.named_poses = self.the_scene.key_list_under_config_key('named_poses')
         for pose_name in self.named_poses:
             pose_name = 'named_poses.' + pose_name
             self.arm_commander.add_named_pose(pose_name, self.the_scene.query_config(pose_name))
 
         # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)
+        for scene_name in self.the_scene.list_scene_names():
+            the_link_of_scene = self.the_scene.get_link_of_scene(scene_name)
+            if the_link_of_scene is None:
+                continue
+            if the_link_of_scene.type == 'box':
+                self.arm_commander.add_box_to_scene(scene_name, the_link_of_scene.dimensions, the_link_of_scene.xyz, the_link_of_scene.rpy)
 
         # build the behaviour tree
         self.move_branch = self.create_move_branch()

@@ -121,14 +121,16 @@ class PNDTaskTreesManager(TaskTreesManager):
     # Functions for the simulation (demo)
     def setup_objects(self):
         # setup objects
-        for object_name in self.the_scene.list_object_names():
-            the_object = self.the_scene.get_object_config(object_name)
-            if the_object.type == 'box':
-                self.arm_commander.add_box_to_scene(object_name, the_object.dimensions, the_object.xyz, the_object.rpy)    
+        for scene_name in self.the_scene.list_scene_names():
+            the_link = self.the_scene.get_link_of_scene(scene_name)
+            if the_link is None:
+                continue
+            if the_link.type == 'box':
+                self.arm_commander.add_box_to_scene(scene_name, the_link.dimensions, the_link.xyz, the_link.rpy)    
     
     # Generate a new ball on the table
     def generate_a_ball(self):
-        the_table = self.the_scene.get_object_config('the_table')
+        the_table = self.the_scene.get_link_of_scene('the_table')
         x, y = the_table.dimensions[0] * random.random() * 0.9, the_table.dimensions[1] * random.random() * 0.9 # position in the box frame
         z = the_table.xyz[2] + the_table.dimensions[2] / 2 + 0.035
         xyz = [x, y, z]

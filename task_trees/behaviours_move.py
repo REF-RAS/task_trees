@@ -201,8 +201,8 @@ class DoMoveXYZRPY(SceneConditionalCommanderBehaviour):
             xyz = self.compute_physical_target(self.target_xyz, None, default_target=current_xyz[:3])  
             rpy = self.compute_physical_target(self.target_rpy, None, default_target=current_xyz[3:])            
         else:
-            xyz = self.compute_physical_target(self.target_xyz, self.the_scene.query_position_as_xyz, default_target=current_xyz[:3])  
-            rpy = self.compute_physical_target(self.target_rpy, self.the_scene.query_rotation_as_rpy, default_target=current_xyz[3:]) 
+            xyz = self.compute_physical_target(self.target_xyz, self.the_scene.query_config, default_target=current_xyz[:3])  
+            rpy = self.compute_physical_target(self.target_rpy, self.the_scene.query_config, default_target=current_xyz[3:]) 
         if xyz is None:
             logger.error(f'DoMoveXYZRPY ({self.name}): invalid position xyz parameter {xyz}')
             return Status.FAILURE 
@@ -295,7 +295,7 @@ class DoRotate(SceneConditionalCommanderBehaviour):
         if self.the_scene is None:
             target_rpy = self.compute_physical_target(self.target_rpy)      
         else:
-            target_rpy = self.compute_physical_target(self.target_rpy, self.the_scene.query_rotation_as_rpy)
+            target_rpy = self.compute_physical_target(self.target_rpy, self.the_scene.query_config)
 
         if self.target_rpy is None or target_rpy is None:
             logger.error(f'DoRotate ({self.name}): invalid target_rpy parameter {self.target_rpy}')
