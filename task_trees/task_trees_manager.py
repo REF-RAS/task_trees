@@ -322,6 +322,7 @@ class TaskTreesManager(BasicTaskTreesManager):
         """
         named_poses = the_scene.get_named_poses_of_root_as_dict()
         for name in named_poses:
+            print(f'named_pose {name}: {named_poses[name]}')
             self.arm_commander.add_named_pose(name, named_poses[name])
             
     def _define_links(self, the_scene:Scene, link_type=None, include_list:list=None, ignore_list:list=None):
