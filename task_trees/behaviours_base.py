@@ -235,9 +235,12 @@ class ConditionalCommanderBehaviour(ConditionalBehaviour):
             return Status.SUCCESS
         elif self.commander_state == GeneralCommanderStates.ABORTED:
             logger.error(f'ConditionalCommanderBehaviour handles task aborted')
-            if self.the_blackboard.exists('task'):
-                self.the_blackboard.set('task.state', TaskStates.ABORTED)        
-            self.tidy_up()
+            # NOTE: the update enables the task trees to report pytree FAILURE but the task status can stay the same
+            # This allows the task status is WORKING and so other parts of the behaviour tree may deal with the arm commander abort signal 
+            # such as retry or trying another branch 
+            # if self.the_blackboard.exists('task'):
+            #     self.the_blackboard.set('task.state', TaskStates.ABORTED)        
+            # self.tidy_up()
             return Status.FAILURE
         elif self.commander_state == GeneralCommanderStates.ERROR:
             logger.error(f'ConditionalCommanderBehaviour handles task error')
