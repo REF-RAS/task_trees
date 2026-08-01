@@ -1,9 +1,11 @@
 # The Task Trees Framework
 
-![QUT REF Collection](https://badgen.net/badge/collections/QUT%20REF-RAS?icon=github) [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-
 **Robotics and Autonomous Systems Group, Research Engineering Facility, Research Infrastructure**
 **Queensland University of Technology**
+
+![QUT REF Collection](https://badgen.net/badge/collections/QUT%20REF-RAS?icon=github) 
+[![License](https://img.shields.io/badge/License-BSD_3--NO--AI--Clause-blue.svg)](https://github.com/non-ai-licenses/non-ai-licenses/blob/main/NON-AI-BSD3)
+[![Build Sphinx and Deploy](https://github.com/REF-RAS/task_trees/actions/workflows/sphinx.yml/badge.svg)](https://github.com/REF-RAS/task_trees/actions/workflows/sphinx.yml)
 
 ## Introduction
 
